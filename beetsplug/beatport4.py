@@ -174,6 +174,7 @@ class Beatport4Client:
                   .format(my_account.username, my_account.email))
         except BeatportAPIError as e:
             print("Exception when calling /my/account endpoint: %s\n" % e)
+            raise e
 
     def get_my_account(self):
         """ Get information about current account.
@@ -301,21 +302,20 @@ class Beatport4Plugin(BeetsPlugin):
             with open(self._tokenfile()) as f:
                 data = json.load(f)
         except OSError:
-            # Get the JSON response by visiting
-            # https://api.beatport.com/v4/docs/,
-            # logging in and searching the Network tab for the
-            # POST https://api.beatport.com/v4/auth/o/token/
-            data = json.loads(beets.ui.input_(
-                "Login at https://api.beatport.com/v4/docs/ "
-                "and paste /token response from the browser:"))
-            with open(self._tokenfile(), 'w') as f:
-                json.dump(data, f)
+            data = self._prompt_write_token_file()
 
         if 'access_token' not in data:
             raise beets.ui.UserError(
                 'Invalid token given or stored in beatport_token.json file.')
 
-        self.client = Beatport4Client(data['access_token'])
+        try:
+            self.client = Beatport4Client(data['access_token'])
+        except BeatportAPIError as e:
+            # Retr
+            if "Error 401" in str(e) or "Error 403" in str(e):
+                data = self._prompt_write_token_file()
+
+                self.client = Beatport4Client(data['access_token'])
 
     def _tokenfile(self):
         """Get the path to the JSON file for storing the OAuth token.
@@ -465,3 +465,17 @@ class Beatport4Plugin(BeetsPlugin):
         bp_tracks = self.client.search(query, model='tracks')
         tracks = [self._get_track_info(x) for x in bp_tracks]
         return tracks
+
+    def _prompt_write_token_file(self):
+        """Prompts user to paste the OAuth token in the console and
+        writes the contents to the beatport_token.json file.
+        Returns parsed JSON.
+        """
+        data = json.loads(beets.ui.input_(
+            "Token not yet fetched, expired or not valid.\n"
+            "Login at https://api.beatport.com/v4/docs/ "
+            "and paste /token?code... response from the browser:"))
+        with open(self._tokenfile(), 'w') as f:
+            json.dump(data, f)
+
+        return data
