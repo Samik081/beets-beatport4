@@ -1,3 +1,4 @@
 *.pyc
 beets_bandcamp.egg-info
 dist
+.idea/
