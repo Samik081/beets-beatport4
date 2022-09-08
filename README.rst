@@ -18,7 +18,7 @@ Install this plugin with
 and add ``beatport4`` to the ``plugins`` list in your beets config file.
 
 Beatport Authorization (workaround)
--------------
+-----------------------------------
 1. Visit https://api.beatport.com/v4/docs/
 2. Open Network tab in your browser and start capturing the traffic
 3. Login with your Beatport account
@@ -28,5 +28,5 @@ Beatport Authorization (workaround)
 7. Add ``beatport4`` plugin to your ``beets/config.yaml`` plugins list
 
 Configuration and Usage
--------------
+-----------------------
 Apart from the authorization part, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/v1.6.0/plugins/index.html#metadata-source-plugin-configuration>`_
