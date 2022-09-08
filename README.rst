@@ -6,6 +6,10 @@ autotagger source.
 
 As Beatport had killed their API v3, the stock beatport plugin does not work anymore. It is also currently not possible to request the access to the API "normal" way, so I have found workaround and updated the code to use the new specification.
 
+For more info, see the discussion on this issue: https://github.com/beetbox/beets/issues/3862
+
+I have also opened a pull request in the official beets repository (https://github.com/beetbox/beets/pull/4477), so if it gets merged, I am probably going to take down this plugin.
+
 Installation
 ------------
 
@@ -19,13 +23,16 @@ and add ``beatport4`` to the ``plugins`` list in your beets config file.
 
 Beatport Authorization (workaround)
 -----------------------------------
-1. Visit https://api.beatport.com/v4/docs/
-2. Open Network tab in your browser and start capturing the traffic
-3. Login with your Beatport account
-4. Search for the following request: ``https://api.beatport.com/v4/auth/o/token/?code=...``
-5. Copy the response (json access token)
-6. Paste it to the `beatport_token.json` file next to your ``beets/config.yaml`` (you can check the path by running ``beet config --paths`` command)
-7. Add ``beatport4`` plugin to your ``beets/config.yaml`` plugins list
+1. Add ``beatport4`` plugin to your ``beets/config.yaml`` plugins list
+2. When the first import with plugin enabled happens, you will be prompted to paste the access token JSON
+3. Visit https://api.beatport.com/v4/docs/
+4. Open Network tab in your browser and start capturing the traffic
+5. Login with your Beatport account
+6. Search for the following request: ``https://api.beatport.com/v4/auth/o/token/?code=...``
+7. Copy the response (whole JSON structure)
+8. Paste it to the terminal (or `beatport_token.json` file next to your ``beets/config.yaml`` - you can check the path by running ``beet config --paths`` command)
+9. You should see ``Beatport authorized as USER <email>`` message
+10. If the token expires, you will be prompted again and required to repeat above steps
 
 Configuration and Usage
 -----------------------
