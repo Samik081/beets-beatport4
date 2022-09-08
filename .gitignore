@@ -1,4 +1,5 @@
 *.pyc
-beets_bandcamp.egg-info
+beets_beatport4.egg-info
 dist
 .idea/
+build/
