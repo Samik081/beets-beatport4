@@ -186,8 +186,7 @@ class BeatportMyAccount:
 
 
 class Beatport4Client:
-    def __init__(self, username=None, password=None, beatport_token=None,
-                 debug=False):
+    def __init__(self, log, username=None, password=None, beatport_token=None):
         """ Initiate the client and make sure it is correctly authorized
         If beatport_token is passed, it is used to make a call to
         /my/account endpoint to check if the token is access_token is valid
@@ -205,19 +204,19 @@ class Beatport4Client:
         self.username = username
         self.password = password
         self.beatport_token = beatport_token
-        self.debug = debug
+        self._log = log
 
         # Token from the file passed
         if self.beatport_token and not self.beatport_token.is_expired():
+            self._log.debug('Trying beatport token loaded from file')
             try:
                 my_account = self.get_my_account()
-                if self.debug:
-                    beets.ui.print_(
-                        'Beatport authorized with stored token as {} <{}>'
-                        .format(my_account.username, my_account.email)
-                    )
+                self._log.debug(
+                    'Beatport authorized with stored token as {0} <{1}>',
+                    my_account.username, my_account.email)
             except BeatportAPIError:
                 # Token from the file could be invalid, authorize and fetch new
+                self._log.debug('Beatport token loaded from file invalid')
                 self.beatport_token = self._authorize()
         elif self.username and self.password:
             self.beatport_token = self._authorize()
@@ -235,6 +234,8 @@ class Beatport4Client:
         :returns:               Beatport OAuth token
         :rtype:                 :py:class:`BeatportOAuthToken`
         """
+        self._log.debug('Started authorizing to the API using '
+                        'username and password')
         with requests.Session() as s:
             # Login to get session id and csrf token cookies
             response = s.post(url=self._make_url('/auth/login/'),
@@ -242,15 +243,15 @@ class Beatport4Client:
                                   'username': self.username,
                                   'password': self.password
                               })
-            account_info = response.json()
-            if 'username' not in account_info or 'email' not in account_info:
+            data = response.json()
+            if 'username' not in data or 'email' not in data:
                 # response contains error message from Beatport API
-                raise BeatportAPIError(account_info)
-            if self.debug:
-                beets.ui.print_(
-                    'Beatport authorized with username and password as {} <{}>'
-                    .format(account_info['username'], account_info['email'])
-                )
+                self._log.debug('Beatport auth error: {0}', data)
+                raise BeatportAPIError(data)
+
+            self._log.debug(
+                'Authorized with username and password as {0} <{1}>',
+                data['username'], data['email'])
 
             # Fetch authorization code
             response = s.get(url=self._make_url('/auth/o/authorize/', query={
@@ -263,6 +264,8 @@ class Beatport4Client:
             next_url = urlparse(self._make_url(response.headers['Location']))
             auth_code = parse_qs(next_url.query)['code'][0]
 
+            self._log.debug('Authorization code: {0}', auth_code)
+
             # Exchange authorization code for access token
             response = s.post(url=self._make_url('/auth/o/token/', query={
                 'code': auth_code,
@@ -270,7 +273,11 @@ class Beatport4Client:
                 'redirect_uri': self._beatport_redirect_uri,
                 'client_id': self._beatport_client_id
             }))
-            return BeatportOAuthToken(response.json())
+            data = response.json()
+            self._log.debug('Exchanged authorization code for '
+                            'the access token: {0}', json.dumps(data))
+
+            return BeatportOAuthToken(data)
 
     def get_my_account(self):
         """ Get information about current account.
@@ -392,15 +399,10 @@ class Beatport4Plugin(BeetsPlugin):
             'tokenfile': 'beatport_token.json',
             'source_weight': 0.5,
             'username': None,
-            'password': None,
-            'debug': False
+            'password': None
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
-        if self.config['debug'].get() in ['True', 'true', '1', 1]:
-            self.debug = True
-        else:
-            self.debug = False
 
     def setup(self):
         """Loads access token from the file, initializes the client
@@ -419,10 +421,10 @@ class Beatport4Plugin(BeetsPlugin):
 
         try:
             self.client = Beatport4Client(
+                log=self._log,
                 username=self.config['username'].get(),
                 password=self.config['password'].get(),
-                beatport_token=beatport_token,
-                debug=self.debug
+                beatport_token=beatport_token
             )
         except BeatportAPIError as e:
             # Invalid username/password or other problems
@@ -432,10 +434,10 @@ class Beatport4Plugin(BeetsPlugin):
             token = self._prompt_for_token()
 
             self.client = Beatport4Client(
+                log=self._log,
                 username=None,
                 password=None,
-                beatport_token=token,
-                debug=self.debug
+                beatport_token=token
             )
 
         with open(self._tokenfile(), 'w') as f:

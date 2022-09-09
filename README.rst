@@ -77,6 +77,5 @@ Configuration
     beatport4:
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
-        debug: False # If True, displays debug messages in the terminal. Defaults to False.
 
 Apart from the above, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/v1.6.0/plugins/beatport.html>`_
