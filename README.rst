@@ -29,8 +29,6 @@ Beatport Authorization
 There are two ways of acquiring user access token to the Beatport v4 API using
 this plugin.
 
-**Method 1.**
-
 Method 1: username and password
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 This method is fully automatic and relies on holding your Beatport username
