@@ -19,7 +19,7 @@
 import json
 import re
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
@@ -92,6 +92,8 @@ class BeatportRelease:
         self.id = str(data['id'])
         self.name = str(data['name'])
         self.artists = []
+        self.tracks = []
+        self.type = None
         if 'artists' in data:
             self.artists = [BeatportArtist(x) for x in data['artists']]
         if 'label' in data:
@@ -102,7 +104,10 @@ class BeatportRelease:
             self.url = "https://beatport.com/release/{}/{}" \
                 .format(data['slug'], data['id'])
         if 'type' in data:
-            self.category = data['type']['name']
+            self.type = data['type']['name']
+        if 'publish_date' in data:
+            self.publish_date = datetime.strptime(
+                data['publish_date'], '%Y-%m-%d')
 
     def __str__(self):
         if len(self.artists) < 4:
@@ -563,14 +568,14 @@ class Beatport4Plugin(BeetsPlugin):
 
         return AlbumInfo(album=release.name, album_id=release.id,
                          artist=artist, artist_id=artist_id, tracks=tracks,
-                         albumtype=release.category, va=va,
-                         year=release.release_date.year,
-                         month=release.release_date.month,
-                         day=release.release_date.day,
-                         label=release.label_name,
+                         albumtype=release.type, va=va,
+                         year=release.publish_date.year,
+                         month=release.publish_date.month,
+                         day=release.publish_date.day,
+                         label=release.label.name,
                          catalognum=release.catalog_number, media='Digital',
                          data_source=self.data_source, data_url=release.url,
-                         genre=release.genre)
+                         genre=None)
 
     def _get_track_info(self, track):
         """Returns a TrackInfo object for a Beatport Track object.
