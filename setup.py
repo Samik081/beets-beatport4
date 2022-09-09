@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='beets-beatport4',
-    version='0.1.1',
+    version='0.1.2',
     description='Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible '
                 'with Beatport API v4.',
     long_description=open('README.rst').read(),

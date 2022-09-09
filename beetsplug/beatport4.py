@@ -18,7 +18,10 @@
 
 import json
 import re
+import time
 from datetime import timedelta
+from json import JSONDecodeError
+from urllib.parse import urlparse, parse_qs, urlencode
 
 from beets.library import MusicalKey
 
@@ -34,6 +37,30 @@ USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
 
 class BeatportAPIError(Exception):
     pass
+
+
+class BeatportOAuthToken:
+    def __init__(self, data):
+        self.access_token = str(data['access_token'])
+        if 'expires_at' in data:
+            self.expires_at = data['expires_at']
+        else:
+            self.expires_at = time.time() + int(data['expires_in'])
+        self.refresh_token = str(data['refresh_token'])
+
+    def is_expired(self):
+        """ Checks if token is expired
+        """
+        return time.time() + 30 >= self.expires_at
+
+    def encode(self):
+        """ Encodes the class into json serializable object
+        """
+        return {
+            'access_token': self.access_token,
+            'expires_at': self.expires_at,
+            'refresh_token': self.refresh_token
+        }
 
 
 class BeatportLabel:
@@ -159,22 +186,91 @@ class BeatportMyAccount:
 
 
 class Beatport4Client:
-    def __init__(self, access_token):
-        """ Initiate the client with OAuth2 Bearer access token
-         and fetch user account data
+    def __init__(self, username=None, password=None, beatport_token=None,
+                 debug=False):
+        """ Initiate the client and make sure it is correctly authorized
+        If beatport_token is passed, it is used to make a call to
+        /my/account endpoint to check if the token is access_token is valid
 
-        :param access_token:    OAuth2 Bearer access token
+        If the token is not passed, or it is invalid, it authorizes the user
+        using username and password credentials given in the config
+        and uses the token obtained in this way
+
+        :param beatport_token:    BeatportOAuthToken
         """
         self._api_base = 'https://api.beatport.com/v4'
-        self.access_token = access_token
+        self._beatport_client_id = '0GIvkCltVIuPkkwSJHp6NDb3s0potTjLBQr388Dd'
+        self._beatport_redirect_uri = '{}/auth/o/post-message/' \
+            .format(self._api_base)
+        self.username = username
+        self.password = password
+        self.beatport_token = beatport_token
+        self.debug = debug
 
-        try:
-            my_account = self.get_my_account()
-            print('Beatport authorized as {} <{}>'
-                  .format(my_account.username, my_account.email))
-        except BeatportAPIError as e:
-            print("Exception when calling /my/account endpoint: %s\n" % e)
-            raise e
+        # Token from the file passed
+        if self.beatport_token and not self.beatport_token.is_expired():
+            try:
+                my_account = self.get_my_account()
+                if self.debug:
+                    beets.ui.print_(
+                        'Beatport authorized with stored token as {} <{}>'
+                        .format(my_account.username, my_account.email)
+                    )
+            except BeatportAPIError:
+                # Token from the file could be invalid, authorize and fetch new
+                self.beatport_token = self._authorize()
+        elif self.username and self.password:
+            self.beatport_token = self._authorize()
+        else:
+            raise BeatportAPIError(
+                'Neither Beatport username and password, '
+                'nor access token is given.'
+            )
+
+    def _authorize(self):
+        """ Authorize client and fetch access token.
+        Uses username and password provided by the user in the config.
+        Uses authorization_code grant type in Beatport OAuth flow.
+
+        :returns:               Beatport OAuth token
+        :rtype:                 :py:class:`BeatportOAuthToken`
+        """
+        with requests.Session() as s:
+            # Login to get session id and csrf token cookies
+            response = s.post(url=self._make_url('/auth/login/'),
+                              json={
+                                  'username': self.username,
+                                  'password': self.password
+                              })
+            account_info = response.json()
+            if 'username' not in account_info or 'email' not in account_info:
+                # response contains error message from Beatport API
+                raise BeatportAPIError(account_info)
+            if self.debug:
+                beets.ui.print_(
+                    'Beatport authorized with username and password as {} <{}>'
+                    .format(account_info['username'], account_info['email'])
+                )
+
+            # Fetch authorization code
+            response = s.get(url=self._make_url('/auth/o/authorize/', query={
+                'response_type': 'code',
+                'client_id': self._beatport_client_id,
+                'redirect_uri': self._beatport_redirect_uri
+            }), allow_redirects=False)
+
+            # Auth code is available in the Location header
+            next_url = urlparse(self._make_url(response.headers['Location']))
+            auth_code = parse_qs(next_url.query)['code'][0]
+
+            # Exchange authorization code for access token
+            response = s.post(url=self._make_url('/auth/o/token/', query={
+                'code': auth_code,
+                'grant_type': 'authorization_code',
+                'redirect_uri': self._beatport_redirect_uri,
+                'client_id': self._beatport_client_id
+            }))
+            return BeatportOAuthToken(response.json())
 
     def get_my_account(self):
         """ Get information about current account.
@@ -245,10 +341,12 @@ class Beatport4Client:
         response = self._get(f'/catalog/tracks/{beatport_id}/')
         return BeatportTrack(response)
 
-    def _make_url(self, endpoint):
+    def _make_url(self, endpoint, query=None):
         """ Get complete URL for a given API endpoint. """
         if not endpoint.startswith('/'):
             endpoint = '/' + endpoint
+        if query:
+            return self._api_base + endpoint + '?' + urlencode(query)
         return self._api_base + endpoint
 
     def _get(self, endpoint, **kwargs):
@@ -259,7 +357,8 @@ class Beatport4Client:
         """
         try:
             headers = {
-                'Authorization': 'Bearer {}'.format(self.access_token),
+                'Authorization': 'Bearer {}'
+                .format(self.beatport_token.access_token),
                 'User-Agent': USER_AGENT
             }
             response = requests.get(self._make_url(endpoint),
@@ -268,11 +367,13 @@ class Beatport4Client:
         except Exception as e:
             raise BeatportAPIError(
                 "Error connecting to Beatport API: {}"
-                .format(e))
+                .format(e)
+            )
         if not response:
             raise BeatportAPIError(
                 "Error {0.status_code} for '{0.request.path_url}"
-                .format(response))
+                .format(response)
+            )
 
         json_response = response.json()
 
@@ -290,32 +391,68 @@ class Beatport4Plugin(BeetsPlugin):
         self.config.add({
             'tokenfile': 'beatport_token.json',
             'source_weight': 0.5,
+            'username': None,
+            'password': None,
+            'debug': False
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
+        if self.config['debug'].get() in ['True', 'true', '1', 1]:
+            self.debug = True
+        else:
+            self.debug = False
 
     def setup(self):
-        """Loads access token from the file
+        """Loads access token from the file, initializes the client
+        and writes the token to the file if new one is fetched during
+        client authorization
         """
+        beatport_token = None
         # Get the OAuth token from a file
         try:
             with open(self._tokenfile()) as f:
-                data = json.load(f)
-        except OSError:
-            data = self._prompt_write_token_file()
+                beatport_token = BeatportOAuthToken(json.load(f))
 
-        if 'access_token' not in data:
-            raise beets.ui.UserError(
-                'Invalid token given or stored in beatport_token.json file.')
+        except (OSError, AttributeError, JSONDecodeError):
+            # File does not exist, or has invalid format
+            pass
 
         try:
-            self.client = Beatport4Client(data['access_token'])
+            self.client = Beatport4Client(
+                username=self.config['username'].get(),
+                password=self.config['password'].get(),
+                beatport_token=beatport_token,
+                debug=self.debug
+            )
         except BeatportAPIError as e:
-            # Retr
-            if "Error 401" in str(e) or "Error 403" in str(e):
-                data = self._prompt_write_token_file()
+            # Invalid username/password or other problems
+            beets.ui.print_(str(e))
 
-                self.client = Beatport4Client(data['access_token'])
+            # Retry manually
+            token = self._prompt_for_token()
+
+            self.client = Beatport4Client(
+                username=None,
+                password=None,
+                beatport_token=token,
+                debug=self.debug
+            )
+
+        with open(self._tokenfile(), 'w') as f:
+            json.dump(self.client.beatport_token.encode(), f)
+
+    def _prompt_for_token(self):
+        """Prompts user to paste the OAuth token in the console and
+        writes the contents to the beatport_token.json file.
+        Returns parsed JSON.
+        """
+        data = json.loads(beets.ui.input_(
+            "Could not fetch token. Check your beatport username and password "
+            "in the config, or try to get token manually.\n"
+            "Login at https://api.beatport.com/v4/docs/ "
+            "and paste /token endpoint response from the browser:"))
+
+        return BeatportOAuthToken(data)
 
     def _tokenfile(self):
         """Get the path to the JSON file for storing the OAuth token.
@@ -465,17 +602,3 @@ class Beatport4Plugin(BeetsPlugin):
         bp_tracks = self.client.search(query, model='tracks')
         tracks = [self._get_track_info(x) for x in bp_tracks]
         return tracks
-
-    def _prompt_write_token_file(self):
-        """Prompts user to paste the OAuth token in the console and
-        writes the contents to the beatport_token.json file.
-        Returns parsed JSON.
-        """
-        data = json.loads(beets.ui.input_(
-            "Token not yet fetched, expired or not valid.\n"
-            "Login at https://api.beatport.com/v4/docs/ "
-            "and paste /token?code... response from the browser:"))
-        with open(self._tokenfile(), 'w') as f:
-            json.dump(data, f)
-
-        return data
