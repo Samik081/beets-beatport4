@@ -36,6 +36,8 @@ and password inside your beets config file.
 It will authorize to the Beatport API using ``authorization_code`` grant type
 and ``client_id`` provided by beatport for the sake of their ``swagger-ui``
 frontend in which you can test their API: https://api.beatport.com/v4/docs/
+By default, ``client_id`` is scrapped automatically from the above URL.
+Alternatively, you can also pass it via plugin configuration.
 
 Steps:
 
@@ -77,5 +79,6 @@ Configuration
     beatport4:
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
+        client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs
 
 Apart from the above, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/v1.6.0/plugins/beatport.html>`_

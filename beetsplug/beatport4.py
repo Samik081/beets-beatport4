@@ -191,7 +191,8 @@ class BeatportMyAccount:
 
 
 class Beatport4Client:
-    def __init__(self, log, username=None, password=None, beatport_token=None):
+    def __init__(self, log, client_id=None, username=None, password=None,
+                 beatport_token=None):
         """ Initiate the client and make sure it is correctly authorized
         If beatport_token is passed, it is used to make a call to
         /my/account endpoint to check if the token is access_token is valid
@@ -202,8 +203,11 @@ class Beatport4Client:
 
         :param beatport_token:    BeatportOAuthToken
         """
+        if beatport_token is None and client_id is None:
+            client_id = self._fetch_beatport_client_id()
+
         self._api_base = 'https://api.beatport.com/v4'
-        self._beatport_client_id = '0GIvkCltVIuPkkwSJHp6NDb3s0potTjLBQr388Dd'
+        self._api_client_id = client_id
         self._beatport_redirect_uri = '{}/auth/o/post-message/' \
             .format(self._api_base)
         self.username = username
@@ -223,13 +227,27 @@ class Beatport4Client:
                 # Token from the file could be invalid, authorize and fetch new
                 self._log.debug('Beatport token loaded from file invalid')
                 self.beatport_token = self._authorize()
-        elif self.username and self.password:
+        elif self.username and self.password and self._api_client_id:
             self.beatport_token = self._authorize()
         else:
             raise BeatportAPIError(
-                'Neither Beatport username and password, '
+                'Neither Beatport username/password and client_id combination, '
                 'nor access token is given.'
             )
+
+    def _fetch_beatport_client_id(self):
+        """ Fetch Beatport API client ID from the docs script
+        """
+        html = requests.get('https://api.beatport.com/v4/docs/').content.decode(
+            'utf-8')
+        scripts_matches = re.findall(r"src=.(.*js)", html)
+        for script_url in scripts_matches:
+            url = 'https://api.beatport.com/{}'.format(script_url)
+            js = requests.get(url.format(script_url)).content.decode('utf-8')
+            client_id_matches = re.findall(r"API_CLIENT_ID: \'(.*)\'", js)
+            if client_id_matches:
+                return client_id_matches[0]
+        raise BeatportAPIError('Could not fetch API_CLIENT_ID')
 
     def _authorize(self):
         """ Authorize client and fetch access token.
@@ -261,9 +279,15 @@ class Beatport4Client:
             # Fetch authorization code
             response = s.get(url=self._make_url('/auth/o/authorize/', query={
                 'response_type': 'code',
-                'client_id': self._beatport_client_id,
+                'client_id': self._api_client_id,
                 'redirect_uri': self._beatport_redirect_uri
             }), allow_redirects=False)
+
+            if 'invalid_request' in response.content.decode('utf-8'):
+                raise BeatportAPIError(
+                    re.findall(r"<p>(.*)</p>",
+                               response.content.decode('utf-8'))[0]
+                )
 
             # Auth code is available in the Location header
             next_url = urlparse(self._make_url(response.headers['Location']))
@@ -276,7 +300,7 @@ class Beatport4Client:
                 'code': auth_code,
                 'grant_type': 'authorization_code',
                 'redirect_uri': self._beatport_redirect_uri,
-                'client_id': self._beatport_client_id
+                'client_id': self._api_client_id
             }))
             data = response.json()
             self._log.debug('Exchanged authorization code for '
@@ -404,7 +428,8 @@ class Beatport4Plugin(BeetsPlugin):
             'tokenfile': 'beatport_token.json',
             'source_weight': 0.5,
             'username': None,
-            'password': None
+            'password': None,
+            'client_id': None
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
@@ -427,12 +452,13 @@ class Beatport4Plugin(BeetsPlugin):
         try:
             self.client = Beatport4Client(
                 log=self._log,
+                client_id=self.config['client_id'].get(),
                 username=self.config['username'].get(),
                 password=self.config['password'].get(),
                 beatport_token=beatport_token
             )
         except BeatportAPIError as e:
-            # Invalid username/password or other problems
+            # Invalid client_id, username/password or other problems
             beets.ui.print_(str(e))
 
             # Retry manually
@@ -440,6 +466,7 @@ class Beatport4Plugin(BeetsPlugin):
 
             self.client = Beatport4Client(
                 log=self._log,
+                client_id=None,
                 username=None,
                 password=None,
                 beatport_token=token
