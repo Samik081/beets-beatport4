@@ -203,7 +203,7 @@ class Beatport4Client:
 
         :param beatport_token:    BeatportOAuthToken
         """
-        if beatport_token is None and client_id is None:
+        if beatport_token is None or client_id is None:
             client_id = self._fetch_beatport_client_id()
 
         self._api_base = 'https://api.beatport.com/v4'
