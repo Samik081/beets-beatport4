@@ -238,7 +238,7 @@ class Beatport4Client:
             'utf-8')
         scripts_matches = re.findall(r"src=.(.*js)", html)
         for script_url in scripts_matches:
-            url = 'https://api.beatport.com/{}'.format(script_url)
+            url = 'https://api.beatport.com{}'.format(script_url)
             js = requests.get(url.format(script_url)).content.decode('utf-8')
             client_id_matches = re.findall(r"API_CLIENT_ID: \'(.*)\'", js)
             if client_id_matches:
