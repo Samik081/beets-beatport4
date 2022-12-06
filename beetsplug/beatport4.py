@@ -228,8 +228,7 @@ class Beatport4Client:
             self.beatport_token = self._authorize()
         else:
             raise BeatportAPIError(
-                'Neither Beatport username/password and client_id combination, '
-                'nor access token is given.'
+                'Neither Beatport username/password, nor access token is given.'
             )
 
     def _fetch_beatport_client_id(self):
