@@ -203,9 +203,6 @@ class Beatport4Client:
 
         :param beatport_token:    BeatportOAuthToken
         """
-        if beatport_token is None and client_id is None:
-            client_id = self._fetch_beatport_client_id()
-
         self._api_base = 'https://api.beatport.com/v4'
         self._api_client_id = client_id
         self._beatport_redirect_uri = '{}/auth/o/post-message/' \
@@ -227,7 +224,7 @@ class Beatport4Client:
                 # Token from the file could be invalid, authorize and fetch new
                 self._log.debug('Beatport token loaded from file invalid')
                 self.beatport_token = self._authorize()
-        elif self.username and self.password and self._api_client_id:
+        elif self.username and self.password:
             self.beatport_token = self._authorize()
         else:
             raise BeatportAPIError(
@@ -259,6 +256,9 @@ class Beatport4Client:
         """
         self._log.debug('Started authorizing to the API using '
                         'username and password')
+        if self._api_client_id is None:
+            self._api_client_id = self._fetch_beatport_client_id()
+
         with requests.Session() as s:
             # Login to get session id and csrf token cookies
             response = s.post(url=self._make_url('/auth/login/'),
