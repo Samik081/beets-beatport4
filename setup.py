@@ -6,7 +6,7 @@ setup(
     description='Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible '
                 'with Beatport API v4.',
     long_description=open('README.rst').read(),
-    author='Szymon "Samik" Tarasiński',
+    author='Szymon "Samik" Tarasinski',
     author_email='st.samik@gmail.com',
     url='https://github.com/Samik081/beets-beatport4',
     download_url='https://github.com/Samik081/beets-beatport4/releases/download/v0.2.4/beets-beatport4-0.2.4.tar.gz',
