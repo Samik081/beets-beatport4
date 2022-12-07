@@ -138,9 +138,9 @@ class BeatportTrack:
                 self.length = timedelta(minutes=int(min), seconds=int(sec))
             except ValueError:
                 pass
-        if 'key' in data:
+        if 'key' in data and data['key']['name']:
             self.initial_key = self._normalize_key(str(data['key']['name']))
-        if 'bpm' in data:
+        if 'bpm' in data and data['bpm']:
             self.bpm = int(data['bpm'])
         if 'sub_genre' in data and data['sub_genre']:
             self.genre = str(data['sub_genre']['name'])
