@@ -364,7 +364,7 @@ class Beatport4Client:
         """
         response = self._get(f'/catalog/releases/{beatport_id}/tracks/',
                              perPage=100)
-        return [BeatportTrack(t) for t in response]
+        return [self.get_track(t['id']) for t in response]
 
     def get_track(self, beatport_id):
         """ Get information about a single track.
