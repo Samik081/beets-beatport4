@@ -2,14 +2,14 @@ from setuptools import setup
 
 setup(
     name='beets-beatport4',
-    version='0.2.5',
+    version='0.2.6',
     description='Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible '
                 'with Beatport API v4.',
     long_description=open('README.rst').read(),
     author='Szymon "Samik" Tarasinski',
     author_email='st.samik@gmail.com',
     url='https://github.com/Samik081/beets-beatport4',
-    download_url='https://github.com/Samik081/beets-beatport4/releases/download/v0.2.5/beets-beatport4-0.2.5.tar.gz',
+    download_url='https://github.com/Samik081/beets-beatport4/releases/download/v0.2.6/beets-beatport4-0.2.5.tar.gz',
     license='MIT',
     platforms='ALL',
 
