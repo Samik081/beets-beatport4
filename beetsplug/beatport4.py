@@ -134,7 +134,7 @@ class BeatportTrack:
         self.genre = None
         if not self.length:
             try:
-                min, sec = data.get('length', '0:0').split(':')
+                min, sec = (data.get('length', '0:0') or '0:0').split(':')
                 self.length = timedelta(minutes=int(min), seconds=int(sec))
             except ValueError:
                 pass
