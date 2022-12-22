@@ -140,7 +140,7 @@ class BeatportTrack:
                 pass
         if data.get('key') and data['key']['name']:
             self.initial_key = self._normalize_key(str(data['key']['name']))
-        if data.get('bpm') and data['bpm']:
+        if data.get('bpm'):
             self.bpm = int(data['bpm'])
         if 'sub_genre' in data and data['sub_genre']:
             self.genre = str(data['sub_genre']['name'])
