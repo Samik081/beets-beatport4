@@ -348,7 +348,11 @@ class Beatport4Client:
         :returns:               The matching release
         :rtype:                 :py:class:`BeatportRelease`
         """
-        response = self._get(f'/catalog/releases/{beatport_id}/')
+        try:
+            response = self._get(f'/catalog/releases/{beatport_id}/')
+        except BeatportAPIError as e:
+            self._log.debug((str(e)))
+            return None
         if response:
             release = BeatportRelease(response)
             release.tracks = self.get_release_tracks(beatport_id)
@@ -362,8 +366,12 @@ class Beatport4Client:
         :returns:               Tracks in the matching release
         :rtype:                 list of :py:class:`BeatportTrack`
         """
-        response = self._get(f'/catalog/releases/{beatport_id}/tracks/',
-                             perPage=100)
+        try:
+            response = self._get(f'/catalog/releases/{beatport_id}/tracks/',
+                                 perPage=100)
+        except BeatportAPIError as e:
+            self._log.debug((str(e)))
+            return []
         # we are not using BeatportTrack(t) because "number" field is missing
         return [self.get_track(t['id']) for t in response]
 
@@ -374,7 +382,11 @@ class Beatport4Client:
         :returns:               The matching track
         :rtype:                 :py:class:`BeatportTrack`
         """
-        response = self._get(f'/catalog/tracks/{beatport_id}/')
+        try:
+            response = self._get(f'/catalog/tracks/{beatport_id}/')
+        except BeatportAPIError as e:
+            self._log.debug(str(e))
+            return None
         return BeatportTrack(response)
 
     def _make_url(self, endpoint, query=None):
