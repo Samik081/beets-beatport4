@@ -335,7 +335,10 @@ class Beatport4Client:
         if model == 'releases':
             for release in response['releases']:
                 if details:
-                    yield self.get_release(release['id'])
+                    release = self.get_release(release['id'])
+                    if release:
+                        yield release
+                    continue
                 yield BeatportRelease(release)
         elif model == 'tracks':
             for track in response['tracks']:
