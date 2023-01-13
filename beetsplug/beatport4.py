@@ -136,6 +136,7 @@ class BeatportTrack:
         self.bpm = None
         self.genre = None
         self.image_url = None
+        self.image_dynamic_url = None
         if not self.length:
             try:
                 min, sec = (data.get('length', '0:0') or '0:0').split(':')
@@ -156,8 +157,12 @@ class BeatportTrack:
             self.number = data['number']
         if 'release' in data:
             self.release = BeatportRelease(data['release'])
-            if 'image' in data['release'] and 'uri' in data['release']['image']:
-                self.image_url = data['release']['image']['uri']
+            if 'image' in data['release']:
+                if 'uri' in data['release']['image']:
+                    self.image_url = data['release']['image']['uri']
+                if 'dynamic_uri' in data['release']['image']:
+                    self.image_dynamic_url = data['release']['image'][
+                        'dynamic_uri']
         if 'remixers' in data:
             self.remixers = data['remixers']
         if 'slug' in data:
@@ -406,22 +411,36 @@ class Beatport4Client:
             return self._api_base + endpoint + '?' + urlencode(query)
         return self._api_base + endpoint
 
-    def get_image(self, beatport_id):
+    def get_image(self, beatport_id, width=None, height=None):
         """ Fetches image from Beatport in a binary format
 
         :param beatport_id: Beatport ID of the track
+        :param width:       Width of the image to fetch using dynamic uri
+        :param height:      Height of the image to fetch using dynamic uri
         :returns:           Image as a binary data or None if one not found
         """
         track = self.get_track(beatport_id)
         if track is None:
             return None
 
-        image_url = track.image_url
+        if width == 0:
+            width = None
+        if height == 0:
+            height = None
+
+        if width is not None or height is not None:
+            image_url = track.image_dynamic_url.format(
+                w=width or height,
+                h=height or width
+            )
+        else:
+            image_url = track.image_url
         if image_url is None:
             return None
 
         try:
             headers = self._get_request_headers()
+            self._log.debug("Fetching image from URL: {}".format(image_url))
             response = requests.get(image_url, headers=headers)
         except Exception as e:
             raise BeatportAPIError(
@@ -488,8 +507,10 @@ class Beatport4Plugin(BeetsPlugin):
             'username': None,
             'password': None,
             'client_id': None,
-            'art': True,
+            'art': False,
             'art_overwrite': False,
+            'art_width': None,
+            'art_height': None,
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
@@ -550,10 +571,16 @@ class Beatport4Plugin(BeetsPlugin):
 
                 if not self.config['art_overwrite'].get() and \
                         get_art(self._log, task.item):
+                    self._log.debug(
+                        'File already contains an art, skipping fetching new')
                     return
 
                 track_id = task.match.info.track_id
-                image_data = self.client.get_image(track_id)
+                image_data = self.client.get_image(
+                    track_id,
+                    self.config['art_width'].get(),
+                    self.config['art_height'].get(),
+                )
                 if image_data is None:
                     return
 

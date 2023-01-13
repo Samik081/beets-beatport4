@@ -77,8 +77,10 @@ Steps:
 Fetching and embedding an art
 -----------------------------
 Additionally, this plugin has implemented separate art fetching and embedding.
-Unlike `fetchart plugin <https://beets.readthedocs.io/en/stable/plugins/fetchart.html>`_, it handles both singletons and albums,
-but it will not work if you choose candidate source other than Beatport.
+Unlike
+`fetchart plugin <https://beets.readthedocs.io/en/stable/plugins/fetchart.html>`_,
+it handles both singletons, but it will not work if you choose candidate source
+other than Beatport.
 Also, it does not require enabling
 `fetchart <https://beets.readthedocs.io/en/stable/plugins/fetchart.html>`_ or
 `embedart <https://beets.readthedocs.io/en/stable/plugins/embedart.html>`_
@@ -89,7 +91,7 @@ shipped with the core library.
 Under the hood, it uses image URL for the track's release,
 exposed by the Beatport API.
 
-You can disable this feature via configuration (**it is enabled by default**):
+You can enable this feature via configuration (**it is disabled by default**):
 
 .. code-block:: yaml
 
@@ -105,13 +107,34 @@ Again, you can force such behaviour via configuration:
         art: yes
         art_overwrite: yes
 
+Image size
+^^^^^^^^^^
+Original images from Beatport might have big resolution and size, but thanks to
+Beatport's dynamic image URIs, it is possible to fetch image already resized by
+Beatport backend, saving the bandwidth and resources on resizing images locally.
+To specify the dynamic width and height, just pass it via configuration:
+
+.. code-block:: yaml
+
+    beatport4:
+        art: yes
+        art_width: 250 # don't specify or 0 to disable
+        art_height: 250 # don't specify or 0 to disable
+
+- if you specify just one dimension, the other will be set to the same value, so the aspect ratio is 1:1
+- if you don't specify any dimension, original art will be downloaded
+- if you specify both dimensions, they will be used in the dynamic URI, but they usually (always?) return images in 1:1 aspect ratio using lower dimension anyway
+
+
 Plugin configuration
 --------------------
 .. code-block:: yaml
 
     beatport4:
-        art: yes
+        art: no
         art_overwrite: no
+        art_width: <WIDTH_PX>
+        art_height: <HEIGHT_PX>
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
         client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs
