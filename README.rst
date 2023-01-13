@@ -47,6 +47,8 @@ Steps:
 .. code-block:: yaml
 
     beatport4:
+        art: yes
+        art_overwrite: no
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
 
@@ -72,11 +74,44 @@ Steps:
 8. Paste it to the terminal (or `beatport_token.json` file next to your ``beets/config.yaml`` - you can check the path by running ``beet config --paths`` command)
 9. If the token expires, you will be prompted again and required to repeat above steps
 
-Configuration
--------------
+Fetching and embedding an art
+-----------------------------
+Additionally, this plugin has implemented separate art fetching and embedding.
+Unlike `fetchart plugin <https://beets.readthedocs.io/en/stable/plugins/fetchart.html>`_, it handles both singletons and albums,
+but it will not work if you choose candidate source other than Beatport.
+Also, it does not require enabling
+`fetchart <https://beets.readthedocs.io/en/stable/plugins/fetchart.html>`_ or
+`embedart <https://beets.readthedocs.io/en/stable/plugins/embedart.html>`_
+plugins, as it uses
+`beets.art module <https://github.com/beetbox/beets/blob/master/beets/art.py>`_
+shipped with the core library.
+
+Under the hood, it uses image URL for the track's release,
+exposed by the Beatport API.
+
+You can disable this feature via configuration (**it is enabled by default**):
+
 .. code-block:: yaml
 
     beatport4:
+        art: yes
+
+By default, if a track already contains an art, it will not be overwritten.
+Again, you can force such behaviour via configuration:
+
+.. code-block:: yaml
+
+    beatport4:
+        art: yes
+        art_overwrite: yes
+
+Plugin configuration
+--------------------
+.. code-block:: yaml
+
+    beatport4:
+        art: yes
+        art_overwrite: no
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
         client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs

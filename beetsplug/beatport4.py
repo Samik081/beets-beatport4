@@ -17,12 +17,15 @@
 """
 
 import json
+import os
 import re
+import tempfile
 import time
 from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
+from beets.art import embed_item, get_art
 from beets.library import MusicalKey
 
 import beets
@@ -132,6 +135,7 @@ class BeatportTrack:
         self.url = None
         self.bpm = None
         self.genre = None
+        self.image_url = None
         if not self.length:
             try:
                 min, sec = (data.get('length', '0:0') or '0:0').split(':')
@@ -152,6 +156,8 @@ class BeatportTrack:
             self.number = data['number']
         if 'release' in data:
             self.release = BeatportRelease(data['release'])
+            if 'image' in data['release'] and 'uri' in data['release']['image']:
+                self.image_url = data['release']['image']['uri']
         if 'remixers' in data:
             self.remixers = data['remixers']
         if 'slug' in data:
@@ -400,6 +406,36 @@ class Beatport4Client:
             return self._api_base + endpoint + '?' + urlencode(query)
         return self._api_base + endpoint
 
+    def get_image(self, beatport_id):
+        """ Fetches image from Beatport in a binary format
+
+        :param beatport_id: Beatport ID of the track
+        :returns:           Image as a binary data or None if one not found
+        """
+        track = self.get_track(beatport_id)
+        if track is None:
+            return None
+
+        image_url = track.image_url
+        if image_url is None:
+            return None
+
+        try:
+            headers = self._get_request_headers()
+            response = requests.get(image_url, headers=headers)
+        except Exception as e:
+            raise BeatportAPIError(
+                "Error fetching image from Beatport: {}"
+                .format(e)
+            )
+        if not response:
+            raise BeatportAPIError(
+                "Error {} for '{}"
+                .format(response.status_code, image_url)
+            )
+
+        return response.content
+
     def _get(self, endpoint, **kwargs):
         """ Perform a GET request on a given API endpoint.
 
@@ -407,11 +443,7 @@ class Beatport4Client:
         exceptions into :py:class:`BeatportAPIError` objects.
         """
         try:
-            headers = {
-                'Authorization': 'Bearer {}'
-                .format(self.beatport_token.access_token),
-                'User-Agent': USER_AGENT
-            }
+            headers = self._get_request_headers()
             response = requests.get(self._make_url(endpoint),
                                     params=kwargs,
                                     headers=headers)
@@ -433,6 +465,17 @@ class Beatport4Client:
             return json_response['results']
         return json_response
 
+    def _get_request_headers(self):
+        """Formats Authorization and User-Agent HTTP client request headers
+
+        :returns: HTTP client request headers
+        """
+        return {
+            'Authorization': 'Bearer {}'
+            .format(self.beatport_token.access_token),
+            'User-Agent': USER_AGENT
+        }
+
 
 class Beatport4Plugin(BeetsPlugin):
     data_source = 'Beatport'
@@ -444,10 +487,13 @@ class Beatport4Plugin(BeetsPlugin):
             'source_weight': 0.5,
             'username': None,
             'password': None,
-            'client_id': None
+            'client_id': None,
+            'art': True,
+            'art_overwrite': False,
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
+        self.register_listener('import_task_files', self.import_task_files)
 
     def setup(self):
         """Loads access token from the file, initializes the client
@@ -489,6 +535,36 @@ class Beatport4Plugin(BeetsPlugin):
 
         with open(self._tokenfile(), 'w') as f:
             json.dump(self.client.beatport_token.encode(), f)
+
+    def import_task_files(self, task):
+        """import_task_files event listener fires after track has been written
+        Based on 'embed_art' config value and a data source,
+        tries to fetch image for a track and embeds it into a track file
+
+        :param task: import_task_files event parameter
+        """
+        try:
+            if self.config['art'].get():
+                if task.match.info.data_source != self.data_source:
+                    return
+
+                if not self.config['art_overwrite'].get() and \
+                        get_art(self._log, task.item):
+                    return
+
+                track_id = task.match.info.track_id
+                image_data = self.client.get_image(track_id)
+                if image_data is None:
+                    return
+
+                temp_image = tempfile.NamedTemporaryFile(delete=False)
+                temp_image.write(image_data)
+
+                embed_item(self._log, task.item, temp_image.name)
+                temp_image.close()
+                os.remove(temp_image.name)
+        except (OSError, BeatportAPIError, AttributeError) as e:
+            self._log.debug('Failed to embed image: {}'.format(str(e)))
 
     def _prompt_for_token(self):
         """Prompts user to paste the OAuth token in the console and
