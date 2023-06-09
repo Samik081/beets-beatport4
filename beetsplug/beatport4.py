@@ -527,7 +527,7 @@ class Beatport4Plugin(BeetsPlugin):
             with open(self._tokenfile()) as f:
                 beatport_token = BeatportOAuthToken(json.load(f))
 
-        except (OSError, AttributeError, JSONDecodeError):
+        except (OSError, AttributeError, JSONDecodeError, KeyError):
             # File does not exist, or has invalid format
             pass
 
