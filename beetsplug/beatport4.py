@@ -98,7 +98,8 @@ class BeatportRelease:
         self.tracks = []
         self.type = None
         if 'artists' in data:
-            self.artists = [BeatportArtist(x) for x in data['artists']]
+            self.artists = [BeatportArtist(x) for x in data['artists'] if
+                            x is not None]
         if 'label' in data:
             self.label = BeatportLabel(data['label'])
         if 'catalog_number' in data:
@@ -128,7 +129,8 @@ class BeatportTrack:
     def __init__(self, data):
         self.id = str(data['id'])
         self.name = str(data['name'])
-        self.artists = [BeatportArtist(x) for x in data['artists']]
+        self.artists = [BeatportArtist(x) for x in data['artists'] if
+                        x is not None]
         self.length = timedelta(milliseconds=data.get('length_ms', 0) or 0)
         self.number = None
         self.initial_key = None
@@ -387,7 +389,7 @@ class Beatport4Client:
             self._log.debug((str(e)))
             return []
         # we are not using BeatportTrack(t) because "number" field is missing
-        return [self.get_track(t['id']) for t in response]
+        return [self.get_track(t['id']) for t in response if t is not None]
 
     def get_track(self, beatport_id):
         """ Get information about a single track.
@@ -705,11 +707,13 @@ class Beatport4Plugin(BeetsPlugin):
         """
         va = len(release.artists) > 3
         artist, artist_id = self._get_artist(
-            ((artist.id, artist.name) for artist in release.artists)
+            ((artist.id, artist.name) for artist in release.artists if
+             artist is not None)
         )
         if va:
             artist = "Various Artists"
-        tracks = [self._get_track_info(x) for x in release.tracks]
+        tracks = [self._get_track_info(x) for x in release.tracks if
+                  x is not None]
 
         return AlbumInfo(album=release.name, album_id=release.id,
                          artist=artist, artist_id=artist_id, tracks=tracks,
@@ -729,7 +733,8 @@ class Beatport4Plugin(BeetsPlugin):
         if track.mix_name != "Original Mix":
             title += f" ({track.mix_name})"
         artist, artist_id = self._get_artist(
-            ((artist.id, artist.name) for artist in track.artists)
+            ((artist.id, artist.name) for artist in track.artists if
+             artist is not None)
         )
         length = track.length.total_seconds()
         return TrackInfo(title=title, track_id=track.id,
@@ -752,5 +757,5 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns a list of TrackInfo objects for a Beatport query.
         """
         bp_tracks = self.client.search(query, model='tracks')
-        tracks = [self._get_track_info(x) for x in bp_tracks]
+        tracks = [self._get_track_info(x) for x in bp_tracks if x is not None]
         return tracks
