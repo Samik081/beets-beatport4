@@ -471,7 +471,7 @@ class Beatport4Client:
                 "Error connecting to Beatport API: {}"
                 .format(e)
             )
-        if not response:
+        if not response or response.status_code >= 400:
             raise BeatportAPIError(
                 "Error {0.status_code} for '{0.request.path_url}"
                 .format(response)
