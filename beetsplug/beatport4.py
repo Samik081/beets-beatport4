@@ -577,21 +577,22 @@ class Beatport4Plugin(BeetsPlugin):
                         'File already contains an art, skipping fetching new')
                     return
 
-                track_id = task.match.info.track_id
-                image_data = self.client.get_image(
-                    track_id,
-                    self.config['art_width'].get(),
-                    self.config['art_height'].get(),
-                )
-                if image_data is None:
-                    return
+                for track in task.imported_items():
+                    track_id = track.get('mb_trackid')
+                    image_data = self.client.get_image(
+                        track_id,
+                        self.config['art_width'].get(),
+                        self.config['art_height'].get(),
+                    )
+                    if image_data is None:
+                        return
 
-                temp_image = tempfile.NamedTemporaryFile(delete=False)
-                temp_image.write(image_data)
+                    temp_image = tempfile.NamedTemporaryFile(delete=False)
+                    temp_image.write(image_data)
 
-                embed_item(self._log, task.item, temp_image.name)
-                temp_image.close()
-                os.remove(temp_image.name)
+                    embed_item(self._log, task.item, temp_image.name)
+                    temp_image.close()
+                    os.remove(temp_image.name)
         except (OSError, BeatportAPIError, AttributeError) as e:
             self._log.debug('Failed to embed image: {}'.format(str(e)))
 
