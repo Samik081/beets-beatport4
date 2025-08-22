@@ -26,13 +26,14 @@ from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
 from beets.art import embed_item, get_art
-from beets.library import MusicalKey
+from beets.dbcore.types import MusicalKey
 
 import beets
 import beets.ui
 import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
-from beets.plugins import BeetsPlugin, MetadataSourcePlugin, get_distance
+from beets.metadata_plugins import MetadataSourcePlugin, _get_distance
+from beets.plugins import BeetsPlugin
 import confuse
 
 USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
@@ -618,7 +619,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for albums.
         """
-        return get_distance(
+        return _get_distance(
             data_source=self.data_source,
             info=album_info,
             config=self.config
@@ -628,7 +629,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for individual tracks.
         """
-        return get_distance(
+        return _get_distance(
             data_source=self.data_source,
             info=track_info,
             config=self.config
