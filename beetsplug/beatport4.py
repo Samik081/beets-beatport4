@@ -32,7 +32,8 @@ import beets
 import beets.ui
 import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
-from beets.plugins import BeetsPlugin, MetadataSourcePlugin, get_distance
+from beets.plugins import BeetsPlugin
+from beets.metadata_plugins import MetadataSourcePlugin, _get_distance
 import confuse
 
 USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
