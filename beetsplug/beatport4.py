@@ -32,7 +32,8 @@ import beets
 import beets.ui
 import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
-from beets.metadata_plugins import MetadataSourcePlugin, _get_distance
+from beets.autotag.match import distance
+from beets.metadata_plugins import MetadataSourcePlugin
 from beets.plugins import BeetsPlugin
 import confuse
 
@@ -619,7 +620,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for albums.
         """
-        return _get_distance(
+        return distance(
             data_source=self.data_source,
             info=album_info,
             config=self.config
@@ -629,7 +630,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for individual tracks.
         """
-        return _get_distance(
+        return distance(
             data_source=self.data_source,
             info=track_info,
             config=self.config
