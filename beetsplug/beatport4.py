@@ -25,7 +25,7 @@ from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
-from beets.art import embed_item, get_art
+from beets import art
 from beets.dbcore.types import MusicalKey
 
 import beets
@@ -573,7 +573,7 @@ class Beatport4Plugin(BeetsPlugin):
                     return
 
                 if not self.config['art_overwrite'].get() and \
-                        get_art(self._log, task.item):
+                        art.get_art(self._log, task.item):
                     self._log.debug(
                         'File already contains an art, skipping fetching new')
                     return
@@ -591,7 +591,7 @@ class Beatport4Plugin(BeetsPlugin):
                     temp_image = tempfile.NamedTemporaryFile(delete=False)
                     temp_image.write(image_data)
 
-                    embed_item(self._log, task.item, temp_image.name)
+                    art.embed_item(self._log, task.item, temp_image.name)
                     temp_image.close()
                     os.remove(temp_image.name)
         except (OSError, BeatportAPIError, AttributeError) as e:
