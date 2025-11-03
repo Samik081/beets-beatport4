@@ -507,7 +507,7 @@ class Beatport4Plugin(BeetsPlugin):
         super().__init__()
         self.config.add({
             'tokenfile': 'beatport_token.json',
-            'source_weight': 0.5,
+            'data_source_mismatch_penalty': 0.5,
             'username': None,
             'password': None,
             'client_id': None,
