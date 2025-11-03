@@ -25,14 +25,16 @@ from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
 
-from beets.art import embed_item, get_art
-from beets.library import MusicalKey
+from beets import art
+from beets.dbcore.types import MusicalKey
 
 import beets
 import beets.ui
 import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
-from beets.plugins import BeetsPlugin, MetadataSourcePlugin, get_distance
+from beets.autotag.match import distance
+from beets.metadata_plugins import MetadataSourcePlugin
+from beets.plugins import BeetsPlugin
 import confuse
 
 USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
@@ -572,7 +574,7 @@ class Beatport4Plugin(BeetsPlugin):
                     return
 
                 if not self.config['art_overwrite'].get() and \
-                        get_art(self._log, task.item):
+                        art.get_art(self._log, task.item):
                     self._log.debug(
                         'File already contains an art, skipping fetching new')
                     return
@@ -590,7 +592,7 @@ class Beatport4Plugin(BeetsPlugin):
                     temp_image = tempfile.NamedTemporaryFile(delete=False)
                     temp_image.write(image_data)
 
-                    embed_item(self._log, task.item, temp_image.name)
+                    art.embed_item(self._log, task.item, temp_image.name)
                     temp_image.close()
                     os.remove(temp_image.name)
         except (OSError, BeatportAPIError, AttributeError) as e:
@@ -618,7 +620,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for albums.
         """
-        return get_distance(
+        return distance(
             data_source=self.data_source,
             info=album_info,
             config=self.config
@@ -628,7 +630,7 @@ class Beatport4Plugin(BeetsPlugin):
         """Returns the Beatport source weight and the maximum source weight
         for individual tracks.
         """
-        return get_distance(
+        return distance(
             data_source=self.data_source,
             info=track_info,
             config=self.config
