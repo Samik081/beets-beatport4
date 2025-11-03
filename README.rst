@@ -139,4 +139,4 @@ Plugin configuration
         password: <YOUR_BEATPORT_PASSWORD>
         client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs
 
-Apart from the above, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/v1.6.0/plugins/beatport.html>`_
+Apart from the above, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/stable/plugins/beatport.html>`_
