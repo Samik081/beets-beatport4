@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "beets-beatport4"
+version = "0.4.0"
+authors = [
+  { name="Szymon 'Samik' Tarasinski", email="st.samik@gmail.com" },
+]
+description = "Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible with Beatport API v4."
+readme = "README.rst"
+requires-python = ">=3.6"
+license = "MIT"
+classifiers = [
+    'Topic :: Multimedia :: Sound/Audio',
+    'Topic :: Multimedia :: Sound/Audio :: Players :: MP3',
+    'Environment :: Console',
+    'Environment :: Web Environment',
+    'Programming Language :: Python',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.6',
+    'Programming Language :: Python :: 3.7',
+    'Programming Language :: Python :: 3.8',
+    'Programming Language :: Python :: 3.9',
+    'Programming Language :: Python :: 3.10',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+]
+dependencies = [
+    "beets>=2.5.1",
+    "requests",
+    "confuse",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/Samik081/beets-beatport4"
+"Download" = "https://github.com/Samik081/beets-beatport4/releases/download/v0.4.0/beets-beatport4-0.4.0.tar.gz"
+
+[tool.setuptools]
+packages = ["beetsplug"]
