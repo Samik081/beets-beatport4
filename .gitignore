@@ -3,3 +3,4 @@ beets_beatport4.egg-info
 dist
 .idea/
 build/
+.mypy_cache
