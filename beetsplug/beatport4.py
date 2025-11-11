@@ -16,6 +16,8 @@
 """Adds Beatport release and track search support to the autotagger
 """
 
+from __future__ import annotations
+
 import json
 import os
 import re
@@ -24,6 +26,7 @@ import time
 from datetime import timedelta, datetime
 from json import JSONDecodeError
 from urllib.parse import urlparse, parse_qs, urlencode
+from collections.abc import Sequence
 
 from beets import art
 from beets.dbcore.types import MusicalKey
@@ -34,8 +37,12 @@ import requests
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 from beets.autotag.match import distance
 from beets.metadata_plugins import MetadataSourcePlugin
-from beets.plugins import BeetsPlugin
-import confuse
+from beets.util import cached_classproperty
+import confuse  # type: ignore[import-untyped]
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from beets.library import Item
 
 USER_AGENT = f'beets/{beets.__version__} +https://beets.io/'
 
@@ -500,8 +507,10 @@ class Beatport4Client:
         }
 
 
-class Beatport4Plugin(BeetsPlugin):
-    data_source = 'Beatport'
+class Beatport4Plugin(MetadataSourcePlugin):
+    @cached_classproperty
+    def data_source(cls) -> str:
+        return 'Beatport'
 
     def __init__(self):
         super().__init__()
@@ -636,21 +645,29 @@ class Beatport4Plugin(BeetsPlugin):
             config=self.config
         )
 
-    def candidates(self, items, artist, release, va_likely, extra_tags=None):
+    def candidates(
+        self,
+        items: Sequence[Item],
+        artist: str,
+        album: str,
+        va_likely: bool,
+    ) -> list[AlbumInfo]:
         """Returns a list of AlbumInfo objects for beatport search results
         matching release and artist (if not various).
         """
         if va_likely:
-            query = release
+            query = album
         else:
-            query = f'{artist} {release}'
+            query = f'{artist} {album}'
         try:
             return self._get_releases(query)
         except BeatportAPIError as e:
             self._log.debug('API Error: {0} (query: {1})', e, query)
             return []
 
-    def item_candidates(self, item, artist, title):
+    def item_candidates(
+        self, item: Item, artist: str, title: str
+    ) -> list[TrackInfo]:
         """Returns a list of TrackInfo objects for beatport search results
         matching title and artist.
         """
@@ -661,12 +678,15 @@ class Beatport4Plugin(BeetsPlugin):
             self._log.debug('API Error: {0} (query: {1})', e, query)
             return []
 
-    def album_for_id(self, release_id):
-        """Fetches a release by its Beatport ID and returns an AlbumInfo object
-        or None if the query is not a valid ID or release is not found.
+    def album_for_id(self, album_id: str) -> AlbumInfo | None:
+        """Fetches a release by its Beatport ID or URL and returns an AlbumInfo
+        object or None if the query is not a valid ID or release is not found.
         """
-        self._log.debug('Searching for release {0}', release_id)
-        match = re.search(r'(^|beatport\.com/release/.+/)(\d+)$', release_id)
+        if not album_id:
+            self._log.debug('No release ID provided.')
+            return None
+        self._log.debug('Searching for release {0}', album_id)
+        match = re.search(r'(^|beatport\.com/release/.+/)(\d+)$', album_id)
         if not match:
             self._log.debug('Not a valid Beatport release ID.')
             return None
@@ -675,7 +695,7 @@ class Beatport4Plugin(BeetsPlugin):
             return self._get_album_info(release)
         return None
 
-    def track_for_id(self, track_id):
+    def track_for_id(self, track_id: str) -> TrackInfo | None:
         """Fetches a track by its Beatport ID and returns a
         TrackInfo object or None if the track is not a valid
         Beatport ID or track is not found.
