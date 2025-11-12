@@ -625,26 +625,6 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """
         return self.config['tokenfile'].get(confuse.Filename(in_app_dir=True))
 
-    def album_distance(self, items, album_info, mapping):
-        """Returns the Beatport source weight and the maximum source weight
-        for albums.
-        """
-        return distance(
-            data_source=self.data_source,
-            info=album_info,
-            config=self.config
-        )
-
-    def track_distance(self, item, track_info):
-        """Returns the Beatport source weight and the maximum source weight
-        for individual tracks.
-        """
-        return distance(
-            data_source=self.data_source,
-            info=track_info,
-            config=self.config
-        )
-
     def candidates(
         self,
         items: Sequence[Item],
