@@ -37,11 +37,16 @@ dependencies = [
 dev = [
     "mypy",
     "types-requests",
+    "pytest",
+    "pytest-mock",
 ]
 
 [project.urls]
 "Homepage" = "https://github.com/Samik081/beets-beatport4"
 "Download" = "https://github.com/Samik081/beets-beatport4/releases/download/v0.4.1/beets-beatport4-0.4.1.tar.gz"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.setuptools]
 packages = ["beetsplug"]
