@@ -524,6 +524,15 @@ class Beatport4Plugin(MetadataSourcePlugin):
             'art_overwrite': False,
             'art_width': None,
             'art_height': None,
+            'singletons_with_album_metadata': {
+                'enabled': False,
+                'year': True,
+                'album': True,
+                'label': True,
+                'catalognum': True,
+                'albumartist': True,
+                'track_number': True,
+            },
         })
         self.client = None
         self.register_listener('import_begin', self.setup)
@@ -740,13 +749,53 @@ class Beatport4Plugin(MetadataSourcePlugin):
              artist is not None)
         )
         length = track.length.total_seconds()
+        extra_fields = {}
+        # Populate album-level metadata from a related release when importing singletons
+        enrich_config = self.config['singletons_with_album_metadata']
+        if enrich_config['enabled'].get() \
+                and (release := getattr(track, 'release', None)) \
+                and not release.tracks:
+            # Fetch full release data as it's not available in the API response for a single track
+            full_release = self.client.get_release(release.id)
+            if full_release:
+                release = full_release
+            if enrich_config['year'].get():
+                publish_date = getattr(release, 'publish_date', None)
+                if publish_date:
+                    extra_fields['year'] = publish_date.year
+                    extra_fields['month'] = publish_date.month
+                    extra_fields['day'] = publish_date.day
+            if enrich_config['album'].get() and getattr(release, 'name', None):
+                extra_fields['album'] = release.name
+            if enrich_config['label'].get():
+                label = getattr(release, 'label', None)
+                if label and getattr(label, 'name', None):
+                    extra_fields['label'] = label.name
+            if enrich_config['catalognum'].get() \
+                    and getattr(release, 'catalog_number', None):
+                extra_fields['catalognum'] = release.catalog_number
+            if enrich_config['albumartist'].get() and release.artists:
+                albumartist, albumartist_id = self._get_artist(
+                    ((a.id, a.name) for a in release.artists
+                     if a is not None)
+                )
+                extra_fields['albumartist'] = albumartist
+            if enrich_config['track_number'].get() \
+                    and not track.number and release.tracks:
+                for t in release.tracks:
+                    if t.id == track.id:
+                        # For singletons, beets' apply_item_metadata does not map
+                        # TrackInfo.index to Item.track (it's in SPECIAL_FIELDS).
+                        # Pass it as 'track' so _apply_metadata copies it through.
+                        extra_fields['track'] = t.number
+                        break
         return TrackInfo(title=title, track_id=track.id,
                          artist=artist, artist_id=artist_id,
                          length=length, index=track.number,
-                         medium_index=track.number,
+                         medium_index=track.number, media='Digital',
                          data_source=self.data_source, data_url=track.url,
                          bpm=track.bpm, initial_key=track.initial_key,
-                         genre=track.genre)
+                         genre=track.genre, **extra_fields)
 
     def _get_artist(self, artists):
         """Returns an artist string (all artists) and an artist_id (the main
