@@ -126,6 +126,34 @@ To specify the dynamic width and height, just pass it via configuration:
 - if you specify both dimensions, they will be used in the dynamic URI, but they usually (always?) return images in 1:1 aspect ratio using lower dimension anyway
 
 
+Singleton album metadata
+------------------------
+When importing singletons (individual tracks), the original Beatport plugin does
+not populate album-level fields such as year, album name, label, catalog number,
+album artist, or track number. This plugin can optionally fetch the full release
+data from Beatport and fill these fields for singleton imports.
+
+**Note:** Enabling this will trigger an additional API call per each matched
+singleton track to retrieve the release data. This may slow down singleton
+imports.
+
+You can enable this feature via configuration (**it is disabled by default**).
+Individual fields can be toggled off if needed — all default to ``yes`` when
+the feature is enabled:
+
+.. code-block:: yaml
+
+    beatport4:
+        singletons_with_album_metadata:
+            enabled: yes
+            year: yes          # release date (year, month, day)
+            album: yes         # album name
+            label: yes         # record label
+            catalognum: yes    # catalog number
+            albumartist: yes   # album artist
+            track_number: yes  # track number within the release
+
+
 Plugin configuration
 --------------------
 .. code-block:: yaml
@@ -135,6 +163,14 @@ Plugin configuration
         art_overwrite: no
         art_width: <WIDTH_PX>
         art_height: <HEIGHT_PX>
+        singletons_with_album_metadata:
+            enabled: no
+            year: yes
+            album: yes
+            label: yes
+            catalognum: yes
+            albumartist: yes
+            track_number: yes
         username: <YOUR_BEATPORT_USERNAME>
         password: <YOUR_BEATPORT_PASSWORD>
         client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs
