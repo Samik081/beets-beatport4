@@ -95,7 +95,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 e,
             )
         except (JSONDecodeError, KeyError, AttributeError):
-            self._log.warning(
+            self._log.debug(
                 "Corrupt token file at {}; re-authenticating",
                 self._tokenfile(),
             )
@@ -177,7 +177,11 @@ class Beatport4Plugin(MetadataSourcePlugin):
                         self.config["art_height"].get(),
                     )
                     if image_data is None:
-                        return
+                        self._log.debug(
+                            "No image data for track {}; skipping",
+                            track_id,
+                        )
+                        continue
 
                     tmp_path = None
                     try:
@@ -190,7 +194,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                     finally:
                         if tmp_path:
                             os.remove(tmp_path)
-        except (OSError, BeatportAPIError) as e:
+        except (OSError, BeatportAPIError, AttributeError) as e:
             self._log.warning("Failed to embed image: {}", e)
 
     def _prompt_for_token(self) -> BeatportOAuthToken:
@@ -292,7 +296,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         # album title. Non-ASCII word characters (e.g. accented letters) are
         # preserved by the \W+ pattern.
         query = NON_WORD_PATTERN.sub(" ", query)
-        # Strip medium information from query, Things like "CD1" and "disk 1"
+        # Strip medium information from query, Things like "CD1" and "disc 1"
         # can also negate an otherwise positive result.
         query = MEDIUM_INFO_PATTERN.sub("", query)
         albums = [self._get_album_info(x) for x in self.client.search(query)]

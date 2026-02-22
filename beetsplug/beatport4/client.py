@@ -12,6 +12,7 @@ from beetsplug.beatport4.constants import (
     API_BASE_URL,
     CLIENT_ID_PATTERN,
     HTML_PARAGRAPH_PATTERN,
+    HTTP_TIMEOUT,
     RELEASE_TRACKS_PER_PAGE,
     SCRIPT_SRC_PATTERN,
     SEARCH_RESULTS_PER_PAGE,
@@ -90,23 +91,31 @@ class Beatport4Client:
         """Fetch Beatport API client ID from the docs script."""
         try:
             html = requests.get(
-                f"{API_BASE_URL}/docs/", timeout=10
+                f"{API_BASE_URL}/docs/", timeout=HTTP_TIMEOUT
             ).content.decode("utf-8")
         except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
                 f"Error fetching Beatport docs page: {e}"
             ) from e
         scripts_matches = SCRIPT_SRC_PATTERN.findall(html)
+        last_error = None
         for script_url in scripts_matches:
             url = f"https://api.beatport.com{script_url}"
             try:
-                js = requests.get(url, timeout=10).content.decode("utf-8")
-            except requests.exceptions.RequestException:
+                js = requests.get(url, timeout=HTTP_TIMEOUT).content.decode(
+                    "utf-8"
+                )
+            except requests.exceptions.RequestException as e:
+                self._log.debug("Failed to fetch script {}: {}", url, e)
+                last_error = e
                 continue
             client_id_matches = CLIENT_ID_PATTERN.findall(js)
             if client_id_matches:
                 return client_id_matches[0]
-        raise BeatportAPIError("Could not fetch API_CLIENT_ID")
+        msg = "Could not fetch API_CLIENT_ID"
+        if last_error:
+            msg += f" (last error: {last_error})"
+        raise BeatportAPIError(msg)
 
     def _authorize(self) -> BeatportOAuthToken:
         """Authorize client and fetch access token.
@@ -160,15 +169,27 @@ class Beatport4Client:
 
                 body = response.content.decode("utf-8")
                 if "invalid_request" in body:
-                    raise BeatportAPIError(
-                        HTML_PARAGRAPH_PATTERN.findall(body)[0]
-                    )
+                    paragraphs = HTML_PARAGRAPH_PATTERN.findall(body)
+                    msg = paragraphs[0] if paragraphs else body
+                    raise BeatportAPIError(f"Beatport OAuth error: {msg}")
 
                 # Auth code is available in the Location header
+                if "Location" not in response.headers:
+                    raise BeatportAPIError(
+                        "Beatport OAuth redirect missing "
+                        "Location header; "
+                        f"status={response.status_code}"
+                    )
                 next_url = urlparse(
                     self._make_url(response.headers["Location"])
                 )
-                auth_code = parse_qs(next_url.query)["code"][0]
+                codes = parse_qs(next_url.query).get("code")
+                if not codes:
+                    raise BeatportAPIError(
+                        "No authorization code in Beatport "
+                        f"redirect: {next_url.geturl()}"
+                    )
+                auth_code = codes[0]
 
                 self._log.debug("Authorization code: {0}", _redact(auth_code))
 
@@ -192,9 +213,15 @@ class Beatport4Client:
                 )
 
                 return BeatportOAuthToken.from_api_response(data)
+        except requests.exceptions.HTTPError as e:
+            raise BeatportAPIError(
+                f"Beatport authorization failed with HTTP "
+                f"{e.response.status_code}: {e}",
+                status_code=e.response.status_code,
+            ) from e
         except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
-                f"Error during Beatport authorization: {e}"
+                f"Error connecting to Beatport during authorization: {e}"
             ) from e
 
     def get_my_account(self) -> BeatportMyAccount:
@@ -337,7 +364,9 @@ class Beatport4Client:
         try:
             headers = self._get_request_headers()
             self._log.debug("Fetching image from URL: {}", image_url)
-            response = requests.get(image_url, headers=headers)
+            response = requests.get(
+                image_url, headers=headers, timeout=HTTP_TIMEOUT
+            )
         except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
                 f"Error fetching image from Beatport: {e}"
@@ -359,19 +388,28 @@ class Beatport4Client:
         try:
             headers = self._get_request_headers()
             response = requests.get(
-                self._make_url(endpoint), params=kwargs, headers=headers
+                self._make_url(endpoint),
+                params=kwargs,
+                headers=headers,
+                timeout=HTTP_TIMEOUT,
             )
         except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
                 f"Error connecting to Beatport API: {e}"
             ) from e
-        if not response or response.status_code >= 400:
+        if not response.ok:
             raise BeatportAPIError(
                 f"Error {response.status_code} for '{response.request.path_url}'",
                 status_code=response.status_code,
             )
 
-        json_response = response.json()
+        try:
+            json_response = response.json()
+        except ValueError as e:
+            raise BeatportAPIError(
+                f"Invalid JSON in Beatport API response "
+                f"for '{response.request.path_url}': {e}"
+            ) from e
 
         # Handle both list and single entity responses
         if "results" in json_response:

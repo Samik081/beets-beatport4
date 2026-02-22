@@ -101,7 +101,7 @@ class BeatportRelease:
             ]
 
         label = None
-        if "label" in data:
+        if data.get("label"):
             label = BeatportLabel.from_api_response(data["label"])
 
         catalog_number = None
@@ -113,8 +113,8 @@ class BeatportRelease:
             url = f"{BEATPORT_SITE_URL}/release/{data['slug']}/{data['id']}"
 
         release_type = None
-        if "type" in data:
-            release_type = data["type"]["name"]
+        if isinstance(data.get("type"), dict):
+            release_type = data["type"].get("name")
 
         publish_date = None
         if "publish_date" in data:
@@ -196,7 +196,7 @@ class BeatportTrack:
         release = None
         image_url = None
         image_dynamic_url = None
-        if "release" in data:
+        if data.get("release"):
             release = BeatportRelease.from_api_response(data["release"])
             if "image" in data["release"]:
                 if "uri" in data["release"]["image"]:

@@ -14,6 +14,7 @@ BEATPORT_SITE_URL = "https://beatport.com"
 # ── HTTP ──────────────────────────────────────────────────────
 
 USER_AGENT = f"beets/{beets.__version__} +https://beets.io/"
+HTTP_TIMEOUT = 30
 
 # ── Pagination ────────────────────────────────────────────────
 

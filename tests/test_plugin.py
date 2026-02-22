@@ -1,6 +1,8 @@
 """Tests for Beatport4Plugin methods with mocked client."""
 
+import json
 from datetime import datetime, timedelta
+from unittest.mock import MagicMock, patch
 
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 
@@ -11,6 +13,7 @@ from beetsplug.beatport4 import (
     BeatportRelease,
     BeatportTrack,
 )
+from tests.conftest import make_token
 
 _UNSET = object()
 
@@ -333,3 +336,261 @@ class TestClientNoneGuards:
         assert plugin.client is None
         result = plugin.track_for_id("300")
         assert result is None
+
+
+# ──────────────────────────────────────────────────────────────
+# setup()
+# ──────────────────────────────────────────────────────────────
+
+
+class TestPluginSetup:
+    def test_setup_with_valid_token_file(self, plugin, tmp_path):
+        token = make_token()
+        token_path = tmp_path / "token.json"
+        token_path.write_text(json.dumps(token.encode()))
+        plugin.config["tokenfile"].set(str(token_path))
+
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with patch(
+            "beetsplug.beatport4.plugin.Beatport4Client",
+            return_value=mock_client,
+        ) as cls:
+            plugin.setup()
+            cls.assert_called_once()
+            assert plugin.client is mock_client
+
+    def test_setup_with_missing_token_file(self, plugin, tmp_path):
+        token_path = tmp_path / "nonexistent.json"
+        plugin.config["tokenfile"].set(str(token_path))
+        plugin.config["username"].set("user")
+        plugin.config["password"].set("pass")
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with patch(
+            "beetsplug.beatport4.plugin.Beatport4Client",
+            return_value=mock_client,
+        ):
+            plugin.setup()
+            assert plugin.client is mock_client
+
+    def test_setup_with_corrupt_token_file(self, plugin, tmp_path):
+        token_path = tmp_path / "token.json"
+        token_path.write_text("{bad json")
+        plugin.config["tokenfile"].set(str(token_path))
+        plugin.config["username"].set("user")
+        plugin.config["password"].set("pass")
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with patch(
+            "beetsplug.beatport4.plugin.Beatport4Client",
+            return_value=mock_client,
+        ):
+            plugin.setup()
+            assert plugin.client is mock_client
+
+    def test_setup_token_file_read_oserror(self, plugin, tmp_path):
+        token_path = tmp_path / "token.json"
+        plugin.config["tokenfile"].set(str(token_path))
+        plugin.config["username"].set("user")
+        plugin.config["password"].set("pass")
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with (
+            patch("builtins.open", side_effect=OSError("disk err")),
+            patch(
+                "beetsplug.beatport4.plugin.Beatport4Client",
+                return_value=mock_client,
+            ),
+        ):
+            plugin.setup()
+            assert plugin.client is mock_client
+
+    def test_setup_auth_failure_prompts_manual_token(self, plugin, tmp_path):
+        token_path = tmp_path / "nonexistent.json"
+        plugin.config["tokenfile"].set(str(token_path))
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+
+        # First call raises, second call (manual token) succeeds
+        with (
+            patch(
+                "beetsplug.beatport4.plugin.Beatport4Client",
+                side_effect=[
+                    BeatportAPIError("auth failed"),
+                    mock_client,
+                ],
+            ),
+            patch("beets.ui.print_"),
+            patch(
+                "beets.ui.input_",
+                return_value=json.dumps(token.encode()),
+            ),
+        ):
+            plugin.setup()
+            assert plugin.client is mock_client
+
+    def test_setup_auth_and_manual_both_fail_leaves_client_none(
+        self, plugin, tmp_path
+    ):
+        token_path = tmp_path / "nonexistent.json"
+        plugin.config["tokenfile"].set(str(token_path))
+
+        with (
+            patch(
+                "beetsplug.beatport4.plugin.Beatport4Client",
+                side_effect=BeatportAPIError("auth failed"),
+            ),
+            patch("beets.ui.print_"),
+            patch(
+                "beets.ui.input_",
+                return_value="not valid json",
+            ),
+        ):
+            plugin.setup()
+            assert plugin.client is None
+
+    def test_setup_writes_token_to_file(self, plugin, tmp_path):
+        token_path = tmp_path / "token.json"
+        plugin.config["tokenfile"].set(str(token_path))
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with patch(
+            "beetsplug.beatport4.plugin.Beatport4Client",
+            return_value=mock_client,
+        ):
+            plugin.setup()
+            written = json.loads(token_path.read_text())
+            assert written["access_token"] == token.access_token
+
+    def test_setup_token_write_oserror_does_not_crash(self, plugin, tmp_path):
+        # Use a directory path so open(path, "w") raises OSError
+        token_path = tmp_path / "no_such_dir" / "token.json"
+        plugin.config["tokenfile"].set(str(token_path))
+
+        token = make_token()
+        mock_client = MagicMock()
+        mock_client.beatport_token = token
+        with patch(
+            "beetsplug.beatport4.plugin.Beatport4Client",
+            return_value=mock_client,
+        ):
+            plugin.setup()
+            # Client is still set despite write failure
+            assert plugin.client is mock_client
+
+
+# ──────────────────────────────────────────────────────────────
+# import_task_files()
+# ──────────────────────────────────────────────────────────────
+
+
+def _make_mock_task(data_source="Beatport", track_ids=None):
+    """Create a mock import task with the given data source."""
+    task = MagicMock()
+    task.match.info.data_source = data_source
+    items = []
+    for tid in track_ids or ["123"]:
+        item = MagicMock()
+        item.get.return_value = tid
+        items.append(item)
+    task.imported_items.return_value = items
+    return task
+
+
+class TestImportTaskFiles:
+    def test_skips_when_client_is_none(self, plugin):
+        assert plugin.client is None
+        task = _make_mock_task()
+        plugin.import_task_files(task)
+        # Should warn and return without calling get_image
+        task.imported_items.assert_not_called()
+
+    def test_skips_when_art_disabled(self, plugin_with_client, mock_client):
+        plugin_with_client.config["art"].set(False)
+        task = _make_mock_task()
+        plugin_with_client.import_task_files(task)
+        mock_client.get_image.assert_not_called()
+
+    def test_skips_when_data_source_mismatch(
+        self, plugin_with_client, mock_client
+    ):
+        plugin_with_client.config["art"].set(True)
+        task = _make_mock_task(data_source="MusicBrainz")
+        plugin_with_client.import_task_files(task)
+        mock_client.get_image.assert_not_called()
+
+    def test_skips_when_art_exists_and_no_overwrite(
+        self, plugin_with_client, mock_client
+    ):
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(False)
+        task = _make_mock_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            mock_art.get_art.return_value = b"existing art"
+            plugin_with_client.import_task_files(task)
+            mock_client.get_image.assert_not_called()
+
+    def test_embeds_art_successfully(self, plugin_with_client, mock_client):
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = _make_mock_task(track_ids=["123"])
+        mock_client.get_image.return_value = b"\x89PNG fake"
+
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            plugin_with_client.import_task_files(task)
+            mock_client.get_image.assert_called_once()
+            mock_art.embed_item.assert_called_once()
+
+    def test_continues_on_none_image_data(
+        self, plugin_with_client, mock_client
+    ):
+        """Verifies Issue #4 fix: None image → continue, not return."""
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = _make_mock_task(track_ids=["111", "222"])
+        # First track returns None, second returns data
+        mock_client.get_image.side_effect = [None, b"\x89PNG"]
+
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            plugin_with_client.import_task_files(task)
+            # get_image called for both tracks
+            assert mock_client.get_image.call_count == 2
+            # embed_item called only for the second track
+            mock_art.embed_item.assert_called_once()
+
+    def test_handles_get_image_api_error(self, plugin_with_client, mock_client):
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = _make_mock_task()
+        mock_client.get_image.side_effect = BeatportAPIError("img fail")
+
+        with patch("beetsplug.beatport4.plugin.art"):
+            plugin_with_client.import_task_files(task)
+            # Should not crash; warning logged
+
+    def test_handles_oserror(self, plugin_with_client, mock_client):
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = _make_mock_task()
+        mock_client.get_image.return_value = b"\x89PNG"
+
+        with (
+            patch("beetsplug.beatport4.plugin.art"),
+            patch(
+                "tempfile.NamedTemporaryFile",
+                side_effect=OSError("disk full"),
+            ),
+        ):
+            plugin_with_client.import_task_files(task)
+            # Should not crash; warning logged
