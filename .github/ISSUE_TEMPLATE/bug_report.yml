@@ -1,0 +1,142 @@
+name: Bug report
+description: Report a crash, error, or unexpected behavior
+labels: [bug]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Before opening an issue, please:
+        - **Update to the latest version** (`pip install -U beets-beatport4`) — many issues are already fixed
+        - **Search [existing issues](https://github.com/Samik081/beets-beatport4/issues?q=is%3Aissue)** to avoid duplicates
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the bug clearly. What did you expect to happen vs. what actually happened?
+      placeholder: |
+        When importing a release from Beatport, the plugin crashes with a NoneType error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Full traceback / error output
+      description: |
+        Run your import command with **double verbose** (`beet -vv import ...`) and paste the **full output** here.
+        This is the single most important piece of debugging information.
+      render: shell
+      placeholder: |
+        $ beet -vv import /path/to/music
+        ...
+        Traceback (most recent call last):
+          ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: beatport-url
+    attributes:
+      label: Beatport release/track URL
+      description: |
+        If the issue is triggered by a specific release or track, paste the Beatport URL here.
+        This helps reproduce the issue against the same API data.
+      placeholder: https://www.beatport.com/release/example/12345
+    validations:
+      required: false
+
+  - type: input
+    id: import-type
+    attributes:
+      label: Import type
+      description: Were you importing an album or a singleton track?
+      placeholder: "Album / Singleton (`beet import -s`) / Using search ID (`-S`)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: |
+        Paste your `beatport4:` config section. You can get your full config with:
+        ```
+        beet config
+        ```
+        **Remove your username/password before pasting!**
+      render: yaml
+      placeholder: |
+        beatport4:
+            art: no
+            art_overwrite: no
+            singletons_with_album_metadata:
+                enabled: no
+    validations:
+      required: false
+
+  - type: textarea
+    id: setup
+    attributes:
+      label: Environment
+      description: |
+        Please run the following commands and paste the output:
+        ```
+        beet version
+        pip show beets-beatport4
+        python --version
+        ```
+      render: text
+      placeholder: |
+        $ beet version
+        beets version 2.5.1
+        Python version 3.12.0
+        plugins: beatport4, ...
+
+        $ pip show beets-beatport4
+        Name: beets-beatport4
+        Version: 0.5.0
+        ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install the plugin?
+      description: This matters because some install methods (e.g., pipx) can cause module isolation issues.
+      options:
+        - pip install beets-beatport4
+        - pipx inject beets beets-beatport4
+        - From source / git clone
+        - Docker
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: isolation
+    attributes:
+      label: Troubleshooting checklist
+      description: These steps help narrow down the root cause.
+      options:
+        - label: I am using the latest version of beets-beatport4
+          required: false
+        - label: "I tested with other plugins disabled (`beet --plugins=beatport4 import ...`)"
+          required: false
+        - label: I deleted `beatport_token.json` and re-authenticated
+          required: false

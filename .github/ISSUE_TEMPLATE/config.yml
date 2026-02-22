@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Beets documentation
+    url: https://beets.readthedocs.io/
+    about: Check the official beets docs for general beets questions
+  - name: Beets Beatport plugin docs
+    url: https://beets.readthedocs.io/en/stable/plugins/beatport.html
+    about: Reference for the original Beatport plugin (beatport4 extends this)
