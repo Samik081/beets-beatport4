@@ -1,5 +1,7 @@
 """Adds Beatport release and track search support to the autotagger"""
 
+from __future__ import annotations
+
 from beetsplug.beatport4.client import Beatport4Client
 from beetsplug.beatport4.exceptions import BeatportAPIError
 from beetsplug.beatport4.models import (

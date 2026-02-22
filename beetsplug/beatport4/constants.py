@@ -10,8 +10,6 @@ import beets
 
 API_BASE_URL = "https://api.beatport.com/v4"
 BEATPORT_SITE_URL = "https://beatport.com"
-API_DOCS_URL = f"{API_BASE_URL}/docs/"
-REDIRECT_URI_PATH = "/auth/o/post-message/"
 
 # ── HTTP ──────────────────────────────────────────────────────
 

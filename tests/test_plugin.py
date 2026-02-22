@@ -251,3 +251,56 @@ class TestItemCandidates:
         mock_client.search.side_effect = BeatportAPIError("fail")
         result = plugin_with_client.item_candidates(None, "Artist", "Title")
         assert result == []
+
+
+# ──────────────────────────────────────────────────────────────
+# _get_album_info null fields
+# ──────────────────────────────────────────────────────────────
+
+
+class TestGetAlbumInfoNullFields:
+    def test_missing_publish_date(self, plugin):
+        release = _make_bp_release(publish_date=None)
+        # Override publish_date to None (factory sets a default)
+        release.publish_date = None
+        info = plugin._get_album_info(release)
+        assert info.year is None
+        assert info.month is None
+        assert info.day is None
+
+    def test_missing_label(self, plugin):
+        release = _make_bp_release()
+        release.label = None
+        info = plugin._get_album_info(release)
+        assert info.label is None
+
+    def test_missing_both(self, plugin):
+        release = _make_bp_release()
+        release.publish_date = None
+        release.label = None
+        info = plugin._get_album_info(release)
+        assert info.year is None
+        assert info.month is None
+        assert info.day is None
+        assert info.label is None
+
+
+# ──────────────────────────────────────────────────────────────
+# candidates query sanitization
+# ──────────────────────────────────────────────────────────────
+
+
+class TestCandidatesQuerySanitization:
+    def test_special_chars_stripped(self, plugin_with_client, mock_client):
+        mock_client.search.return_value = iter([])
+        plugin_with_client.candidates([], "Art!st", "Album", False)
+        call_args = mock_client.search.call_args
+        query = call_args[0][0]
+        assert "!" not in query
+
+    def test_medium_info_stripped(self, plugin_with_client, mock_client):
+        mock_client.search.return_value = iter([])
+        plugin_with_client.candidates([], "Artist", "Album CD1", False)
+        call_args = mock_client.search.call_args
+        query = call_args[0][0]
+        assert "CD1" not in query

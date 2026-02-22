@@ -80,7 +80,7 @@ class BeatportRelease:
     id: str
     name: str
     artists: list[BeatportArtist] = field(default_factory=list)
-    tracks: list = field(default_factory=list)
+    tracks: list[BeatportTrack] = field(default_factory=list)
     type: str | None = None
     label: BeatportLabel | None = None
     catalog_number: str | None = None
@@ -227,13 +227,15 @@ class BeatportTrack:
         return f"<BeatportTrack: {artist_str} - {self.name} ({self.mix_name})>"
 
     @staticmethod
-    def _normalize_key(key: str) -> str:
-        """Normalize new Beatport key name format (e.g "Eb Major, C# Minor)
-         for backwards compatibility
-
-        :param key:    Key name
+    def _normalize_key(key: str) -> str | None:
+        """Normalize Beatport key display format
+        (e.g. "Eb Major", "C# Minor") to beets internal
+        key notation (e.g. "D#maj", "C#min").
         """
-        (letter_sign, chord) = key.split(" ")
+        try:
+            letter_sign, chord = key.split(" ")
+        except ValueError:
+            return None
         return MusicalKey().normalize((letter_sign + chord.lower())[:-2])
 
 

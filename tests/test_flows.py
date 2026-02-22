@@ -6,6 +6,7 @@ Tests complete plugin method flows: search → parse → beets objects.
 import time
 from unittest.mock import MagicMock
 
+import requests.exceptions
 import responses
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 
@@ -190,7 +191,7 @@ class TestItemCandidatesFlow:
         responses.add(
             responses.GET,
             f"{API_BASE}/catalog/search",
-            body=ConnectionError("timeout"),
+            body=requests.exceptions.ConnectionError("timeout"),
         )
 
         results = plugin.item_candidates(None, "Artist", "Track")

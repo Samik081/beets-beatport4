@@ -84,9 +84,13 @@ class Beatport4Plugin(MetadataSourcePlugin):
                     json.load(f)
                 )
 
-        except (OSError, AttributeError, JSONDecodeError, KeyError):
-            # File does not exist, or has invalid format
+        except OSError:
             pass
+        except (JSONDecodeError, KeyError, AttributeError):
+            self._log.warning(
+                "Corrupt token file at {}; re-authenticating",
+                self._tokenfile(),
+            )
 
         try:
             self.client = Beatport4Client(
@@ -116,11 +120,13 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
     def import_task_files(self, task: object) -> None:
         """import_task_files event listener fires after track has been written
-        Based on 'embed_art' config value and a data source,
+        Based on 'art' config value and a data source,
         tries to fetch image for a track and embeds it into a track file
 
         :param task: import_task_files event parameter
         """
+        if self.client is None:
+            return
         try:
             if self.config["art"].get():
                 if task.match.info.data_source != self.data_source:
@@ -155,13 +161,12 @@ class Beatport4Plugin(MetadataSourcePlugin):
                     finally:
                         if tmp_path:
                             os.remove(tmp_path)
-        except (OSError, BeatportAPIError, AttributeError) as e:
-            self._log.debug(f"Failed to embed image: {e!s}")
+        except (OSError, BeatportAPIError) as e:
+            self._log.warning("Failed to embed image: {}", e)
 
     def _prompt_for_token(self) -> BeatportOAuthToken:
-        """Prompts user to paste the OAuth token in the console and
-        writes the contents to the beatport_token.json file.
-        Returns parsed JSON.
+        """Prompt user to paste OAuth token.
+        Returns parsed BeatportOAuthToken.
         """
         data = json.loads(
             beets.ui.input_(
@@ -195,7 +200,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         try:
             return self._get_releases(query)
         except BeatportAPIError as e:
-            self._log.debug("API Error: {0} (query: {1})", e, query)
+            self._log.warning("API Error: {0} (query: {1})", e, query)
             return []
 
     def item_candidates(
@@ -208,7 +213,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         try:
             return self._get_tracks(query)
         except BeatportAPIError as e:
-            self._log.debug("API Error: {0} (query: {1})", e, query)
+            self._log.warning("API Error: {0} (query: {1})", e, query)
             return []
 
     def album_for_id(self, album_id: str) -> AlbumInfo | None:
@@ -247,8 +252,8 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Returns a list of AlbumInfo objects for a beatport search query."""
         # Strip non-word characters from query. Things like "!" and "-" can
         # cause a query to return no results, even if they match the artist or
-        # album title. Use `re.UNICODE` flag to avoid stripping non-english
-        # word characters.
+        # album title. Non-ASCII word characters (e.g. accented letters) are
+        # preserved by the \W+ pattern.
         query = NON_WORD_PATTERN.sub(" ", query)
         # Strip medium information from query, Things like "CD1" and "disk 1"
         # can also negate an otherwise positive result.
@@ -258,7 +263,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
     def _get_album_info(self, release: BeatportRelease) -> AlbumInfo:
         """Returns an AlbumInfo object for a Beatport Release object."""
-        va = len(release.artists) > VA_ARTIST_THRESHOLD - 1
+        va = len(release.artists) >= VA_ARTIST_THRESHOLD
         artist, artist_id = self._get_artist(
             (artist.id, artist.name)
             for artist in release.artists
@@ -278,10 +283,10 @@ class Beatport4Plugin(MetadataSourcePlugin):
             tracks=tracks,
             albumtype=release.type,
             va=va,
-            year=release.publish_date.year,
-            month=release.publish_date.month,
-            day=release.publish_date.day,
-            label=release.label.name,
+            year=release.publish_date.year if release.publish_date else None,
+            month=release.publish_date.month if release.publish_date else None,
+            day=release.publish_date.day if release.publish_date else None,
+            label=release.label.name if release.label else None,
             catalognum=release.catalog_number,
             media=MEDIA_TYPE,
             data_source=self.data_source,

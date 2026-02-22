@@ -4,6 +4,7 @@ import time
 from unittest.mock import MagicMock
 
 import pytest
+import requests.exceptions
 import responses
 
 from beetsplug.beatport4 import (
@@ -476,6 +477,46 @@ class TestGetImage:
         result = client.get_image(3001, width=0, height=0)
         assert result == image_bytes
 
+    @responses.activate
+    def test_get_image_no_image_url_returns_none(self):
+        """Track exists but has no image URLs."""
+        track_data = load_fixture("track_detail_3001.json")
+        # Remove image data from release
+        track_data["release"]["image"] = {}
+
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/catalog/tracks/3001/",
+            json=track_data,
+            status=200,
+        )
+
+        client = _make_client()
+        result = client.get_image(3001)
+        assert result is None
+
+    @responses.activate
+    def test_get_image_http_error(self):
+        """Image fetch returns 403 -> raises BeatportAPIError."""
+        track_data = load_fixture("track_detail_3001.json")
+
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/catalog/tracks/3001/",
+            json=track_data,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            "https://geo-media.beatport.com/image/neon-dreams.jpg",
+            json={"error": "Forbidden"},
+            status=403,
+        )
+
+        client = _make_client()
+        with pytest.raises(BeatportAPIError):
+            client.get_image(3001)
+
 
 # ──────────────────────────────────────────────────────────────
 # Error handling
@@ -488,7 +529,7 @@ class TestErrorHandling:
         responses.add(
             responses.GET,
             f"{API_BASE}/my/account",
-            body=ConnectionError("connection refused"),
+            body=requests.exceptions.ConnectionError("connection refused"),
         )
 
         client = _make_client()
@@ -521,6 +562,38 @@ class TestErrorHandling:
         result = client.get_release_tracks(4001)
         assert result == []
 
+    @responses.activate
+    def test_get_release_tracks_filters_none_tracks(self):
+        """One track 200, one track 404 -> result has only 1 track."""
+        track_3001 = load_fixture("track_detail_3001.json")
+
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/catalog/releases/4001/tracks/",
+            json=[
+                {"id": 3001, "number": 1},
+                {"id": 9999, "number": 2},
+            ],
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/catalog/tracks/3001/",
+            json=track_3001,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/catalog/tracks/9999/",
+            json={"detail": "Not found"},
+            status=404,
+        )
+
+        client = _make_client()
+        result = client.get_release_tracks(4001)
+        assert len(result) == 1
+        assert result[0].id == "3001"
+
 
 # ──────────────────────────────────────────────────────────────
 # Client __init__ with valid token
@@ -545,6 +618,48 @@ class TestClientInit:
             beatport_token=token,
         )
         assert client.beatport_token is token
+
+    @responses.activate
+    def test_init_valid_token_rejected_reauthorizes(self):
+        """Non-expired token but get_my_account returns 401 -> reauthorizes."""
+        # First call: /my/account returns 401
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/my/account",
+            json={"detail": "Unauthorized"},
+            status=401,
+        )
+        # Auth flow
+        login_data = load_fixture("auth_login.json")
+        token_data = load_fixture("auth_token.json")
+        responses.add(
+            responses.POST,
+            f"{API_BASE}/auth/login/",
+            json=login_data,
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{API_BASE}/auth/o/authorize/",
+            headers={"Location": "/auth/o/post-message/?code=test_code"},
+            status=302,
+        )
+        responses.add(
+            responses.POST,
+            f"{API_BASE}/auth/o/token/",
+            json=token_data,
+            status=200,
+        )
+
+        token = _make_token()
+        client = Beatport4Client(
+            log=MagicMock(),
+            client_id="test_id",
+            username="testuser",
+            password="testpass",
+            beatport_token=token,
+        )
+        assert client.beatport_token.access_token == "new_access_tok_abc123"
 
     def test_init_no_credentials_raises(self):
         with pytest.raises(BeatportAPIError, match="Neither"):

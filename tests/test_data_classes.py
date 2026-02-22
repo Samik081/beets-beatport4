@@ -189,6 +189,17 @@ class TestBeatportTrackNormalizeKey:
         track = BeatportTrack.from_api_response(data)
         assert track.initial_key is None
 
+    def test_normalize_key_malformed_no_space(self):
+        data = {
+            "id": 1,
+            "name": "T",
+            "artists": [],
+            "length_ms": 1000,
+            "key": {"name": "CMinor"},
+        }
+        track = BeatportTrack.from_api_response(data)
+        assert track.initial_key is None
+
 
 class TestBeatportMyAccount:
     def test_construction(self):

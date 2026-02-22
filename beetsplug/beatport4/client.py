@@ -42,7 +42,7 @@ class Beatport4Client:
     ) -> None:
         """Initiate the client and make sure it is correctly authorized.
         If beatport_token is passed, it is used to make a call to
-        /my/account endpoint to check if the token is access_token is valid
+        /my/account endpoint to verify the access token is still valid
 
         If the token is not passed, or it is invalid, it authorizes the user
         using username and password credentials given in the config
@@ -85,7 +85,7 @@ class Beatport4Client:
         scripts_matches = SCRIPT_SRC_PATTERN.findall(html)
         for script_url in scripts_matches:
             url = f"https://api.beatport.com{script_url}"
-            js = requests.get(url.format(script_url)).content.decode("utf-8")
+            js = requests.get(url).content.decode("utf-8")
             client_id_matches = CLIENT_ID_PATTERN.findall(js)
             if client_id_matches:
                 return client_id_matches[0]
@@ -188,7 +188,7 @@ class Beatport4Client:
 
         :param query:           Query string
         :param model:           Type of releases to search for, can be
-                                'release' or 'track'
+                                'releases' or 'tracks'
         :param details:         Retrieve additional information about the
                                 search results. Currently this will fetch
                                 the tracklist for releases and do nothing for
@@ -226,7 +226,7 @@ class Beatport4Client:
         try:
             response = self._get(f"/catalog/releases/{beatport_id}/")
         except BeatportAPIError as e:
-            self._log.debug(str(e))
+            self._log.debug("Failed to fetch release {}: {}", beatport_id, e)
             return None
         if response:
             release = BeatportRelease.from_api_response(response)
@@ -247,11 +247,16 @@ class Beatport4Client:
                 per_page=RELEASE_TRACKS_PER_PAGE,
             )
         except BeatportAPIError as e:
-            self._log.debug(str(e))
+            self._log.debug(
+                "Failed to fetch release tracks {}: {}",
+                beatport_id,
+                e,
+            )
             return []
         # we are not using BeatportTrack.from_api_response(t) because
         # "number" field is missing
-        return [self.get_track(t["id"]) for t in response if t is not None]
+        tracks = [self.get_track(t["id"]) for t in response if t is not None]
+        return [t for t in tracks if t is not None]
 
     def get_track(self, beatport_id: int | str) -> BeatportTrack | None:
         """Get information about a single track.
@@ -263,7 +268,7 @@ class Beatport4Client:
         try:
             response = self._get(f"/catalog/tracks/{beatport_id}/")
         except BeatportAPIError as e:
-            self._log.debug(str(e))
+            self._log.debug("Failed to fetch track {}: {}", beatport_id, e)
             return None
         return BeatportTrack.from_api_response(response)
 
@@ -297,7 +302,9 @@ class Beatport4Client:
         if height == 0:
             height = None
 
-        if width is not None or height is not None:
+        if (
+            width is not None or height is not None
+        ) and track.image_dynamic_url is not None:
             image_url = track.image_dynamic_url.format(
                 w=width or height, h=height or width
             )
@@ -310,7 +317,7 @@ class Beatport4Client:
             headers = self._get_request_headers()
             self._log.debug(f"Fetching image from URL: {image_url}")
             response = requests.get(image_url, headers=headers)
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
                 f"Error fetching image from Beatport: {e}"
             ) from e
@@ -332,7 +339,7 @@ class Beatport4Client:
             response = requests.get(
                 self._make_url(endpoint), params=kwargs, headers=headers
             )
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
                 f"Error connecting to Beatport API: {e}"
             ) from e
