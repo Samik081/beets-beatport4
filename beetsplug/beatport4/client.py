@@ -18,13 +18,13 @@ from beetsplug.beatport4.constants import (
     USER_AGENT,
 )
 from beetsplug.beatport4.exceptions import BeatportAPIError
-from beetsplug.beatport4.utils import _redact
 from beetsplug.beatport4.models import (
     BeatportMyAccount,
     BeatportOAuthToken,
     BeatportRelease,
     BeatportTrack,
 )
+from beetsplug.beatport4.utils import _redact
 
 if TYPE_CHECKING:
     import logging
