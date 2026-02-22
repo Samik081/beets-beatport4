@@ -212,6 +212,13 @@ class BeatportMyAccount:
         return str(self)
 
 
+def _redact(value):
+    """Mask sensitive values unless BEATPORT4_DEBUG_DISABLE_REDACTION is set."""
+    if os.environ.get('BEATPORT4_DEBUG_DISABLE_REDACTION'):
+        return value
+    return '<REDACTED>'
+
+
 class Beatport4Client:
     def __init__(self, log, client_id=None, username=None, password=None,
                  beatport_token=None):
@@ -241,7 +248,7 @@ class Beatport4Client:
                 my_account = self.get_my_account()
                 self._log.debug(
                     'Beatport authorized with stored token as {0} <{1}>',
-                    my_account.username, my_account.email)
+                    _redact(my_account.username), _redact(my_account.email))
             except BeatportAPIError:
                 # Token from the file could be invalid, authorize and fetch new
                 self._log.debug('Beatport token loaded from file invalid')
@@ -295,7 +302,7 @@ class Beatport4Client:
 
             self._log.debug(
                 'Authorized with username and password as {0} <{1}>',
-                data['username'], data['email'])
+                _redact(data['username']), _redact(data['email']))
 
             # Fetch authorization code
             response = s.get(url=self._make_url('/auth/o/authorize/', query={
@@ -314,7 +321,7 @@ class Beatport4Client:
             next_url = urlparse(self._make_url(response.headers['Location']))
             auth_code = parse_qs(next_url.query)['code'][0]
 
-            self._log.debug('Authorization code: {0}', auth_code)
+            self._log.debug('Authorization code: {0}', _redact(auth_code))
 
             # Exchange authorization code for access token
             response = s.post(url=self._make_url('/auth/o/token/', query={
@@ -325,7 +332,8 @@ class Beatport4Client:
             }))
             data = response.json()
             self._log.debug('Exchanged authorization code for '
-                            'the access token: {0}', json.dumps(data))
+                            'the access token: {0}',
+                            _redact(json.dumps(data)))
 
             return BeatportOAuthToken(data)
 

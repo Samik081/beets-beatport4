@@ -175,4 +175,36 @@ Plugin configuration
         password: <YOUR_BEATPORT_PASSWORD>
         client_id: <BEATPORT_API_CLIENT_ID> # optional, you can set it, but it should be scrapped automatically from the docs
 
+Debug logging and sensitive data
+--------------------------------
+When running beets with verbose logging (``beet -vv``), the plugin automatically
+redacts sensitive information such as your username, email, authorization codes,
+and access tokens, replacing them with ``<REDACTED>``. This makes it safe to
+paste ``-vv`` output into bug reports.
+
+If you need the full unredacted output for local debugging, set the
+``BEATPORT4_DEBUG_DISABLE_REDACTION`` environment variable before running beets:
+
+**Linux / macOS:**
+
+.. code-block:: bash
+
+    BEATPORT4_DEBUG_DISABLE_REDACTION=1 beet -vv import /path/to/music
+
+**Windows (PowerShell):**
+
+.. code-block:: powershell
+
+    $env:BEATPORT4_DEBUG_DISABLE_REDACTION = "1"
+    beet -vv import C:\path\to\music
+    Remove-Item Env:\BEATPORT4_DEBUG_DISABLE_REDACTION  # unset after use
+
+**Windows (cmd):**
+
+.. code-block:: batch
+
+    set BEATPORT4_DEBUG_DISABLE_REDACTION=1
+    beet -vv import C:\path\to\music
+    set BEATPORT4_DEBUG_DISABLE_REDACTION=  &REM unset after use
+
 Apart from the above, plugin should work exactly the same way as the stock one, so please refer to the `official documentation <https://beets.readthedocs.io/en/stable/plugins/beatport.html>`_

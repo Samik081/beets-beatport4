@@ -27,6 +27,7 @@ body:
       description: |
         Run your import command with **double verbose** (`beet -vv import ...`) and paste the **full output** here.
         This is the single most important piece of debugging information.
+        Sensitive data (username, email, tokens) is automatically redacted in the output.
       render: shell
       placeholder: |
         $ beet -vv import /path/to/music
