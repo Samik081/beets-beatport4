@@ -35,6 +35,12 @@ For more info, see [this issue](https://github.com/beetbox/beets/issues/3862). A
 pip install beets-beatport4
 ```
 
+If you installed beets with [pipx](https://pipx.pypa.io/), inject the plugin into the same environment:
+
+```
+pipx inject beets beets-beatport4
+```
+
 Then add `beatport4` to the `plugins` list in your beets config file.
 
 ---
