@@ -97,7 +97,7 @@ body:
 
         $ pip show beets-beatport4
         Name: beets-beatport4
-        Version: 0.5.0
+        Version: 0.5.1
         ...
     validations:
       required: true
