@@ -85,7 +85,9 @@ class TestBeatportRelease:
         assert release.publish_date.year == 2024
 
     def test_minimal_construction(self):
-        release = BeatportRelease.from_api_response({"id": 1, "name": "Minimal"})
+        release = BeatportRelease.from_api_response(
+            {"id": 1, "name": "Minimal"}
+        )
         assert release.id == "1"
         assert release.name == "Minimal"
         assert release.artists == []
@@ -106,7 +108,9 @@ class TestBeatportRelease:
         assert "Test Release" in s
 
     def test_str_many_artists(self, sample_release_data):
-        sample_release_data["artists"] = [{"id": i, "name": f"A{i}"} for i in range(5)]
+        sample_release_data["artists"] = [
+            {"id": i, "name": f"A{i}"} for i in range(5)
+        ]
         release = BeatportRelease.from_api_response(sample_release_data)
         assert "Various Artists" in str(release)
 

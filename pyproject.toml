@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible with Beatport API v4."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "MIT"
 classifiers = [
     'Topic :: Multimedia :: Sound/Audio',
@@ -19,8 +19,6 @@ classifiers = [
     'Environment :: Web Environment',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -53,12 +51,45 @@ testpaths = ["tests"]
 include = ["beetsplug*"]
 
 [tool.ruff]
-target-version = "py38"
-line-length = 88
+target-version = "py310"
+line-length = 80
 
 [tool.ruff.lint]
-select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
-ignore = ["E501", "SIM108"]
+future-annotations = true
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "G",   # flake8-logging-format
+    "I",   # isort
+    "ISC", # flake8-implicit-str-concat
+    "N",   # pep8-naming
+    "PT",  # flake8-pytest-style
+    "RUF", # ruff
+    "UP",  # pyupgrade
+    "TC",  # flake8-type-checking
+    "W",   # pycodestyle
+]
+ignore = [
+    "TC006", # no need to quote 'cast's since we use 'from __future__ import annotations'
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["RUF001"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["beetsplug"]
+split-on-trailing-comma = false
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 88
+
+[tool.ruff.lint.flake8-pytest-style]
+fixture-parentheses = false
+mark-parentheses = false
+parametrize-names-type = "csv"
+
+[tool.ruff.lint.flake8-unused-arguments]
+ignore-variadic-names = true
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["cached_classproperty"]
+extend-ignore-names = ["assert*", "cached_classproperty"]

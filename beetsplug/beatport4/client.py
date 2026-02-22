@@ -99,7 +99,9 @@ class Beatport4Client:
         :returns:               Beatport OAuth token
         :rtype:                 :py:class:`BeatportOAuthToken`
         """
-        self._log.debug("Started authorizing to the API using username and password")
+        self._log.debug(
+            "Started authorizing to the API using username and password"
+        )
         if self._api_client_id is None:
             self._api_client_id = self._fetch_beatport_client_id()
 
@@ -136,7 +138,9 @@ class Beatport4Client:
 
             if "invalid_request" in response.content.decode("utf-8"):
                 raise BeatportAPIError(
-                    HTML_PARAGRAPH_PATTERN.findall(response.content.decode("utf-8"))[0]
+                    HTML_PARAGRAPH_PATTERN.findall(
+                        response.content.decode("utf-8")
+                    )[0]
                 )
 
             # Auth code is available in the Location header
@@ -307,9 +311,13 @@ class Beatport4Client:
             self._log.debug(f"Fetching image from URL: {image_url}")
             response = requests.get(image_url, headers=headers)
         except Exception as e:
-            raise BeatportAPIError(f"Error fetching image from Beatport: {e}") from e
+            raise BeatportAPIError(
+                f"Error fetching image from Beatport: {e}"
+            ) from e
         if not response:
-            raise BeatportAPIError(f"Error {response.status_code} for '{image_url}")
+            raise BeatportAPIError(
+                f"Error {response.status_code} for '{image_url}"
+            )
 
         return response.content
 
@@ -325,7 +333,9 @@ class Beatport4Client:
                 self._make_url(endpoint), params=kwargs, headers=headers
             )
         except Exception as e:
-            raise BeatportAPIError(f"Error connecting to Beatport API: {e}") from e
+            raise BeatportAPIError(
+                f"Error connecting to Beatport API: {e}"
+            ) from e
         if not response or response.status_code >= 400:
             raise BeatportAPIError(
                 f"Error {response.status_code} for '{response.request.path_url}"

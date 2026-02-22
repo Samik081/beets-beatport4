@@ -41,19 +41,19 @@ def isolated_beets_config(tmp_path):
         beets.plugins._instances = []
 
 
-@pytest.fixture()
+@pytest.fixture
 def plugin():
     """Create a Beatport4Plugin instance without a client."""
     return Beatport4Plugin()
 
 
-@pytest.fixture()
+@pytest.fixture
 def mock_client():
     """Create a MagicMock with the Beatport4Client spec."""
     return MagicMock(spec=Beatport4Client)
 
 
-@pytest.fixture()
+@pytest.fixture
 def plugin_with_client(plugin, mock_client):
     """Plugin with a mocked client attached."""
     plugin.client = mock_client
@@ -63,17 +63,17 @@ def plugin_with_client(plugin, mock_client):
 # --------------- Sample data fixtures ---------------
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_artist_data():
     return {"id": 100, "name": "Test Artist"}
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_label_data():
     return {"id": 200, "name": "Test Label"}
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_track_data(sample_artist_data):
     return {
         "id": 300,
@@ -99,7 +99,7 @@ def sample_track_data(sample_artist_data):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_release_data(sample_artist_data, sample_label_data):
     return {
         "id": 400,
@@ -113,7 +113,7 @@ def sample_release_data(sample_artist_data, sample_label_data):
     }
 
 
-@pytest.fixture()
+@pytest.fixture
 def sample_token_data():
     return {
         "access_token": "tok_abc123",

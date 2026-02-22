@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import tempfile
-from collections.abc import Sequence
 from json import JSONDecodeError
 from typing import TYPE_CHECKING
 
@@ -29,14 +28,14 @@ from beetsplug.beatport4.constants import (
     VA_ARTIST_THRESHOLD,
 )
 from beetsplug.beatport4.exceptions import BeatportAPIError
-from beetsplug.beatport4.models import (
-    BeatportOAuthToken,
-    BeatportRelease,
-    BeatportTrack,
-)
+from beetsplug.beatport4.models import BeatportOAuthToken
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from beets.library import Item
+
+    from beetsplug.beatport4.models import BeatportRelease, BeatportTrack
 
 
 class Beatport4Plugin(MetadataSourcePlugin):
@@ -81,7 +80,9 @@ class Beatport4Plugin(MetadataSourcePlugin):
         # Get the OAuth token from a file
         try:
             with open(self._tokenfile()) as f:
-                beatport_token = BeatportOAuthToken.from_api_response(json.load(f))
+                beatport_token = BeatportOAuthToken.from_api_response(
+                    json.load(f)
+                )
 
         except (OSError, AttributeError, JSONDecodeError, KeyError):
             # File does not exist, or has invalid format
@@ -145,7 +146,9 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
                     tmp_path = None
                     try:
-                        with tempfile.NamedTemporaryFile(delete=False) as temp_image:
+                        with tempfile.NamedTemporaryFile(
+                            delete=False
+                        ) as temp_image:
                             tmp_path = temp_image.name
                             temp_image.write(image_data)
                         art.embed_item(self._log, task.item, tmp_path)
@@ -195,7 +198,9 @@ class Beatport4Plugin(MetadataSourcePlugin):
             self._log.debug("API Error: {0} (query: {1})", e, query)
             return []
 
-    def item_candidates(self, item: Item, artist: str, title: str) -> list[TrackInfo]:
+    def item_candidates(
+        self, item: Item, artist: str, title: str
+    ) -> list[TrackInfo]:
         """Returns a list of TrackInfo objects for beatport search results
         matching title and artist.
         """
@@ -255,11 +260,15 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Returns an AlbumInfo object for a Beatport Release object."""
         va = len(release.artists) > VA_ARTIST_THRESHOLD - 1
         artist, artist_id = self._get_artist(
-            (artist.id, artist.name) for artist in release.artists if artist is not None
+            (artist.id, artist.name)
+            for artist in release.artists
+            if artist is not None
         )
         if va:
             artist = VA_ARTIST_NAME
-        tracks = [self._get_track_info(x) for x in release.tracks if x is not None]
+        tracks = [
+            self._get_track_info(x) for x in release.tracks if x is not None
+        ]
 
         return AlbumInfo(
             album=release.name,
@@ -286,7 +295,9 @@ class Beatport4Plugin(MetadataSourcePlugin):
         if track.mix_name != ORIGINAL_MIX_NAME:
             title += f" ({track.mix_name})"
         artist, artist_id = self._get_artist(
-            (artist.id, artist.name) for artist in track.artists if artist is not None
+            (artist.id, artist.name)
+            for artist in track.artists
+            if artist is not None
         )
         length = track.length.total_seconds()
         extra_fields: dict = {}
@@ -356,7 +367,9 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Returns an artist string (all artists) and an artist_id (the main
         artist) for a list of Beatport release or track artists.
         """
-        return MetadataSourcePlugin.get_artist(artists=artists, id_key=0, name_key=1)
+        return MetadataSourcePlugin.get_artist(
+            artists=artists, id_key=0, name_key=1
+        )
 
     def _get_tracks(self, query: str) -> list[TrackInfo]:
         """Returns a list of TrackInfo objects for a Beatport query."""

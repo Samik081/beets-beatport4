@@ -9,10 +9,7 @@ from unittest.mock import MagicMock
 import responses
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 
-from beetsplug.beatport4 import (
-    Beatport4Client,
-    BeatportOAuthToken,
-)
+from beetsplug.beatport4 import Beatport4Client, BeatportOAuthToken
 from tests.conftest import load_fixture
 
 API_BASE = "https://api.beatport.com/v4"
@@ -113,7 +110,9 @@ class TestCandidatesFlow:
             status=200,
         )
 
-        results = plugin.candidates([], "Synthwave Runner", "Neon Dreams", False)
+        results = plugin.candidates(
+            [], "Synthwave Runner", "Neon Dreams", False
+        )
         assert len(results) == 2
         assert all(isinstance(r, AlbumInfo) for r in results)
         assert results[0].album == "Neon Dreams EP"
@@ -173,7 +172,9 @@ class TestItemCandidatesFlow:
             status=200,
         )
 
-        results = plugin.item_candidates(None, "Synthwave Runner", "Midnight Circuit")
+        results = plugin.item_candidates(
+            None, "Synthwave Runner", "Midnight Circuit"
+        )
         assert len(results) == 2
         assert all(isinstance(t, TrackInfo) for t in results)
         assert results[0].title == "Midnight Circuit"
@@ -361,7 +362,10 @@ class TestSingletonEnrichmentFlow:
         plugin.client = client
 
         # Disabled by default
-        assert plugin.config["singletons_with_album_metadata"]["enabled"].get() is False
+        assert (
+            plugin.config["singletons_with_album_metadata"]["enabled"].get()
+            is False
+        )
 
         responses.add(
             responses.GET,

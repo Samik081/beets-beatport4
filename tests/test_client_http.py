@@ -80,7 +80,9 @@ class TestFetchClientId:
         )
 
         client = _make_client()
-        with pytest.raises(BeatportAPIError, match="Could not fetch API_CLIENT_ID"):
+        with pytest.raises(
+            BeatportAPIError, match="Could not fetch API_CLIENT_ID"
+        ):
             client._fetch_beatport_client_id()
 
 

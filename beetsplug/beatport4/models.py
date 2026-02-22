@@ -164,7 +164,9 @@ class BeatportTrack:
         length = timedelta(milliseconds=data.get("length_ms", 0) or 0)
         if not length:
             try:
-                min_str, sec_str = (data.get("length", "0:0") or "0:0").split(":")
+                min_str, sec_str = (data.get("length", "0:0") or "0:0").split(
+                    ":"
+                )
                 length = timedelta(minutes=int(min_str), seconds=int(sec_str))
             except ValueError:
                 pass
