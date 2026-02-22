@@ -9,7 +9,7 @@ authors = [
   { name="Szymon 'Samik' Tarasinski", email="st.samik@gmail.com" },
 ]
 description = "Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible with Beatport API v4."
-readme = "README.rst"
+readme = "README.md"
 requires-python = ">=3.6"
 license = "MIT"
 classifiers = [
