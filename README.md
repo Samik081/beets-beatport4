@@ -31,13 +31,11 @@ For more info, see [this issue](https://github.com/beetbox/beets/issues/3862). A
 
 ## Installation
 
-```
+```bash
+# if beets was installed with pip:
 pip install beets-beatport4
-```
 
-If you installed beets with [pipx](https://pipx.pypa.io/), inject the plugin into the same environment:
-
-```
+# or, if beets was installed with pipx:
 pipx inject beets beets-beatport4
 ```
 
