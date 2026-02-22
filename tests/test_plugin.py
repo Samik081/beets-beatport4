@@ -12,6 +12,8 @@ from beetsplug.beatport4 import (
     BeatportTrack,
 )
 
+_UNSET = object()
+
 
 def _make_bp_artist(id_, name):
     return BeatportArtist(id=str(id_), name=name)
@@ -55,7 +57,7 @@ def _make_bp_release(
     label=None,
     catalog_number="TL001",
     type_="Album",
-    publish_date=None,
+    publish_date=_UNSET,
     url="https://beatport.com/release/test-release/400",
 ):
     return BeatportRelease(
@@ -66,7 +68,9 @@ def _make_bp_release(
         label=label or _make_bp_label(200, "Test Label"),
         catalog_number=catalog_number,
         type=type_,
-        publish_date=publish_date or datetime(2024, 6, 15),
+        publish_date=datetime(2024, 6, 15)
+        if publish_date is _UNSET
+        else publish_date,
         url=url,
     )
 
@@ -261,8 +265,6 @@ class TestItemCandidates:
 class TestGetAlbumInfoNullFields:
     def test_missing_publish_date(self, plugin):
         release = _make_bp_release(publish_date=None)
-        # Override publish_date to None (factory sets a default)
-        release.publish_date = None
         info = plugin._get_album_info(release)
         assert info.year is None
         assert info.month is None
@@ -304,3 +306,30 @@ class TestCandidatesQuerySanitization:
         call_args = mock_client.search.call_args
         query = call_args[0][0]
         assert "CD1" not in query
+
+
+# ──────────────────────────────────────────────────────────────
+# client is None guards
+# ──────────────────────────────────────────────────────────────
+
+
+class TestClientNoneGuards:
+    def test_candidates_returns_empty_when_no_client(self, plugin):
+        assert plugin.client is None
+        result = plugin.candidates([], "Artist", "Album", False)
+        assert result == []
+
+    def test_item_candidates_returns_empty_when_no_client(self, plugin):
+        assert plugin.client is None
+        result = plugin.item_candidates(None, "Artist", "Title")
+        assert result == []
+
+    def test_album_for_id_returns_none_when_no_client(self, plugin):
+        assert plugin.client is None
+        result = plugin.album_for_id("12345")
+        assert result is None
+
+    def test_track_for_id_returns_none_when_no_client(self, plugin):
+        assert plugin.client is None
+        result = plugin.track_for_id("300")
+        assert result is None

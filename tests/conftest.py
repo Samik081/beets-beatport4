@@ -1,6 +1,7 @@
 """Shared fixtures for beets-beatport4 tests."""
 
 import json
+import time
 from collections import defaultdict
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -10,7 +11,11 @@ import beets.plugins
 import pytest
 from beets.plugins import BeetsPlugin
 
-from beetsplug.beatport4 import Beatport4Client, Beatport4Plugin
+from beetsplug.beatport4 import (
+    Beatport4Client,
+    Beatport4Plugin,
+    BeatportOAuthToken,
+)
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -120,3 +125,30 @@ def sample_token_data():
         "expires_in": 3600,
         "refresh_token": "ref_xyz789",
     }
+
+
+# --------------- Shared test helpers ---------------
+
+
+def make_token(expired=False):
+    """Create a BeatportOAuthToken for testing."""
+    return BeatportOAuthToken(
+        access_token="test_access_token",
+        expires_at=0 if expired else time.time() + 9999,
+        refresh_token="test_refresh_token",
+    )
+
+
+def make_authed_client(token=None):
+    """Create a Beatport4Client bypassing __init__."""
+    client = object.__new__(Beatport4Client)
+    client._api_base = "https://api.beatport.com/v4"
+    client._api_client_id = "test_client_id"
+    client._beatport_redirect_uri = (
+        "https://api.beatport.com/v4/auth/o/post-message/"
+    )
+    client.username = "testuser"
+    client.password = "testpass"
+    client.beatport_token = token or make_token()
+    client._log = MagicMock()
+    return client

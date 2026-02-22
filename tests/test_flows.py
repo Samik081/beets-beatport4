@@ -3,38 +3,13 @@
 Tests complete plugin method flows: search → parse → beets objects.
 """
 
-import time
-from unittest.mock import MagicMock
-
 import requests.exceptions
 import responses
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 
-from beetsplug.beatport4 import Beatport4Client, BeatportOAuthToken
-from tests.conftest import load_fixture
+from tests.conftest import load_fixture, make_authed_client
 
 API_BASE = "https://api.beatport.com/v4"
-
-
-def _make_token():
-    return BeatportOAuthToken(
-        access_token="tok",
-        expires_at=time.time() + 9999,
-        refresh_token="ref",
-    )
-
-
-def _make_authed_client():
-    """Create a client stub bypassing __init__."""
-    client = object.__new__(Beatport4Client)
-    client._api_base = API_BASE
-    client._api_client_id = "test_id"
-    client._beatport_redirect_uri = f"{API_BASE}/auth/o/post-message/"
-    client.username = "testuser"
-    client.password = "testpass"
-    client.beatport_token = _make_token()
-    client._log = MagicMock()
-    return client
 
 
 def _register_release_endpoints():
@@ -73,7 +48,7 @@ def _register_release_endpoints():
 class TestCandidatesFlow:
     @responses.activate
     def test_candidates_returns_album_info_list(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         # search returns releases
@@ -122,7 +97,7 @@ class TestCandidatesFlow:
 
     @responses.activate
     def test_candidates_va_likely_omits_artist(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -141,7 +116,7 @@ class TestCandidatesFlow:
 
     @responses.activate
     def test_candidates_api_error_returns_empty(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -163,7 +138,7 @@ class TestCandidatesFlow:
 class TestItemCandidatesFlow:
     @responses.activate
     def test_item_candidates_returns_track_info_list(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -185,7 +160,7 @@ class TestItemCandidatesFlow:
 
     @responses.activate
     def test_item_candidates_api_error_returns_empty(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -206,7 +181,7 @@ class TestItemCandidatesFlow:
 class TestAlbumForIdFlow:
     @responses.activate
     def test_album_for_id_with_url(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
         _register_release_endpoints()
 
@@ -219,7 +194,7 @@ class TestAlbumForIdFlow:
 
     @responses.activate
     def test_album_for_id_with_numeric_id(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
         _register_release_endpoints()
 
@@ -228,14 +203,14 @@ class TestAlbumForIdFlow:
         assert result.album_id == "4001"
 
     def test_album_for_id_invalid_returns_none(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         result = plugin.album_for_id("not-an-id")
         assert result is None
 
     def test_album_for_id_empty_returns_none(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         result = plugin.album_for_id("")
@@ -243,7 +218,7 @@ class TestAlbumForIdFlow:
 
     @responses.activate
     def test_album_for_id_not_found_returns_none(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -265,7 +240,7 @@ class TestAlbumForIdFlow:
 class TestTrackForIdFlow:
     @responses.activate
     def test_track_for_id_with_url(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -283,7 +258,7 @@ class TestTrackForIdFlow:
 
     @responses.activate
     def test_track_for_id_with_numeric_id(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -299,7 +274,7 @@ class TestTrackForIdFlow:
         assert "Extended Mix" in result.title
 
     def test_track_for_id_invalid_returns_none(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         result = plugin.track_for_id("not-valid")
@@ -307,7 +282,7 @@ class TestTrackForIdFlow:
 
     @responses.activate
     def test_track_for_id_not_found_returns_none(self, plugin):
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         responses.add(
@@ -331,7 +306,7 @@ class TestSingletonEnrichmentFlow:
     def test_singleton_gets_album_metadata(self, plugin):
         """When singletons_with_album_metadata is enabled, track_for_id
         enriches TrackInfo with album-level fields."""
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         # Enable singleton enrichment
@@ -359,7 +334,7 @@ class TestSingletonEnrichmentFlow:
     @responses.activate
     def test_singleton_without_enrichment(self, plugin):
         """Without enrichment enabled, no album metadata is populated."""
-        client = _make_authed_client()
+        client = make_authed_client()
         plugin.client = client
 
         # Disabled by default

@@ -83,9 +83,17 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 beatport_token = BeatportOAuthToken.from_api_response(
                     json.load(f)
                 )
-
-        except OSError:
-            pass
+        except FileNotFoundError:
+            self._log.debug(
+                "Token file not found at {}; will authenticate",
+                self._tokenfile(),
+            )
+        except OSError as e:
+            self._log.warning(
+                "Could not read token file at {}: {}",
+                self._tokenfile(),
+                e,
+            )
         except (JSONDecodeError, KeyError, AttributeError):
             self._log.warning(
                 "Corrupt token file at {}; re-authenticating",
@@ -105,27 +113,48 @@ class Beatport4Plugin(MetadataSourcePlugin):
             beets.ui.print_(str(e))
 
             # Retry manually
-            token = self._prompt_for_token()
+            try:
+                token = self._prompt_for_token()
+                self.client = Beatport4Client(
+                    log=self._log,
+                    client_id=None,
+                    username=None,
+                    password=None,
+                    beatport_token=token,
+                )
+            except (
+                BeatportAPIError,
+                JSONDecodeError,
+                KeyError,
+                ValueError,
+            ) as exc:
+                self._log.warning("Manual token entry failed: {}", exc)
+                return
 
-            self.client = Beatport4Client(
-                log=self._log,
-                client_id=None,
-                username=None,
-                password=None,
-                beatport_token=token,
+        try:
+            with open(self._tokenfile(), "w") as f:
+                json.dump(self.client.beatport_token.encode(), f)
+        except OSError as e:
+            self._log.warning(
+                "Could not write token file at {}: {}",
+                self._tokenfile(),
+                e,
             )
 
-        with open(self._tokenfile(), "w") as f:
-            json.dump(self.client.beatport_token.encode(), f)
-
     def import_task_files(self, task: object) -> None:
-        """import_task_files event listener fires after track has been written
-        Based on 'art' config value and a data source,
-        tries to fetch image for a track and embeds it into a track file
+        """Embed album art from Beatport after a track has been written.
+
+        Skips art embedding when: the Beatport client is not initialized,
+        the ``art`` config option is disabled, the matched data source is
+        not Beatport, or ``art_overwrite`` is disabled and the file already
+        contains artwork.
 
         :param task: import_task_files event parameter
         """
         if self.client is None:
+            self._log.warning(
+                "Beatport client not initialized; skipping art embedding"
+            )
             return
         try:
             if self.config["art"].get():
@@ -193,6 +222,8 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Returns a list of AlbumInfo objects for beatport search results
         matching release and artist (if not various).
         """
+        if self.client is None:
+            return []
         if va_likely:
             query = album
         else:
@@ -209,6 +240,8 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Returns a list of TrackInfo objects for beatport search results
         matching title and artist.
         """
+        if self.client is None:
+            return []
         query = f"{artist} {title}"
         try:
             return self._get_tracks(query)
@@ -220,6 +253,8 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Fetches a release by its Beatport ID or URL and returns an AlbumInfo
         object or None if the query is not a valid ID or release is not found.
         """
+        if self.client is None:
+            return None
         if not album_id:
             self._log.debug("No release ID provided.")
             return None
@@ -234,10 +269,12 @@ class Beatport4Plugin(MetadataSourcePlugin):
         return None
 
     def track_for_id(self, track_id: str) -> TrackInfo | None:
-        """Fetches a track by its Beatport ID and returns a
+        """Fetches a track by its Beatport ID or URL and returns a
         TrackInfo object or None if the track is not a valid
         Beatport ID or track is not found.
         """
+        if self.client is None:
+            return None
         self._log.debug("Searching for track {0}", track_id)
         match = TRACK_ID_PATTERN.search(track_id)
         if not match:
@@ -310,7 +347,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         enrich_config = self.config["singletons_with_album_metadata"]
         if (
             enrich_config["enabled"].get()
-            and (release := getattr(track, "release", None))
+            and (release := track.release) is not None
             and not release.tracks
         ):
             # Fetch full release data as it's not available in the API response
@@ -318,21 +355,16 @@ class Beatport4Plugin(MetadataSourcePlugin):
             full_release = self.client.get_release(release.id)
             if full_release:
                 release = full_release
-            if enrich_config["year"].get():
-                publish_date = getattr(release, "publish_date", None)
-                if publish_date:
-                    extra_fields["year"] = publish_date.year
-                    extra_fields["month"] = publish_date.month
-                    extra_fields["day"] = publish_date.day
-            if enrich_config["album"].get() and getattr(release, "name", None):
+            if enrich_config["year"].get() and release.publish_date:
+                extra_fields["year"] = release.publish_date.year
+                extra_fields["month"] = release.publish_date.month
+                extra_fields["day"] = release.publish_date.day
+            if enrich_config["album"].get() and release.name:
                 extra_fields["album"] = release.name
             if enrich_config["label"].get():
-                label = getattr(release, "label", None)
-                if label and getattr(label, "name", None):
-                    extra_fields["label"] = label.name
-            if enrich_config["catalognum"].get() and getattr(
-                release, "catalog_number", None
-            ):
+                if release.label and release.label.name:
+                    extra_fields["label"] = release.label.name
+            if enrich_config["catalognum"].get() and release.catalog_number:
                 extra_fields["catalognum"] = release.catalog_number
             if enrich_config["albumartist"].get() and release.artists:
                 albumartist, _albumartist_id = self._get_artist(
@@ -368,7 +400,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
             **extra_fields,
         )
 
-    def _get_artist(self, artists: object) -> tuple[str, str]:
+    def _get_artist(self, artists: object) -> tuple[str, str | None]:
         """Returns an artist string (all artists) and an artist_id (the main
         artist) for a list of Beatport release or track artists.
         """

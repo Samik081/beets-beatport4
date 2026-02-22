@@ -1,6 +1,5 @@
 """HTTP-level tests for Beatport4Client using the responses library."""
 
-import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -15,32 +14,9 @@ from beetsplug.beatport4 import (
     BeatportRelease,
     BeatportTrack,
 )
-from tests.conftest import load_fixture
+from tests.conftest import load_fixture, make_authed_client, make_token
 
 API_BASE = "https://api.beatport.com/v4"
-
-
-def _make_token(expired=False):
-    """Create a valid BeatportOAuthToken for testing."""
-    data = {
-        "access_token": "test_access_token",
-        "expires_at": 0 if expired else time.time() + 9999,
-        "refresh_token": "test_refresh_token",
-    }
-    return BeatportOAuthToken(**data)
-
-
-def _make_client(token=None):
-    """Create a Beatport4Client without triggering __init__."""
-    client = object.__new__(Beatport4Client)
-    client._api_base = API_BASE
-    client._api_client_id = "test_client_id"
-    client._beatport_redirect_uri = f"{API_BASE}/auth/o/post-message/"
-    client.username = "testuser"
-    client.password = "testpass"
-    client.beatport_token = token or _make_token()
-    client._log = MagicMock()
-    return client
 
 
 # ──────────────────────────────────────────────────────────────
@@ -67,7 +43,7 @@ class TestFetchClientId:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client._fetch_beatport_client_id()
         assert result == "test_client_id_12345"
 
@@ -80,7 +56,7 @@ class TestFetchClientId:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(
             BeatportAPIError, match="Could not fetch API_CLIENT_ID"
         ):
@@ -120,7 +96,7 @@ class TestAuthorize:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         token = client._authorize()
         assert isinstance(token, BeatportOAuthToken)
         assert token.access_token == "new_access_tok_abc123"
@@ -134,7 +110,7 @@ class TestAuthorize:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(BeatportAPIError):
             client._authorize()
 
@@ -155,7 +131,7 @@ class TestAuthorize:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(BeatportAPIError):
             client._authorize()
 
@@ -176,7 +152,7 @@ class TestGetMyAccount:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         acc = client.get_my_account()
         assert isinstance(acc, BeatportMyAccount)
         assert acc.username == "testuser"
@@ -199,7 +175,7 @@ class TestSearch:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         results = list(client.search("Synthwave Runner", model="tracks"))
         assert len(results) == 2
         assert all(isinstance(t, BeatportTrack) for t in results)
@@ -216,7 +192,7 @@ class TestSearch:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         results = list(client.search("Neon Dreams", details=False))
         assert len(results) == 2
         assert all(isinstance(r, BeatportRelease) for r in results)
@@ -288,7 +264,7 @@ class TestSearch:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         results = list(client.search("Neon Dreams"))
         assert len(results) == 2
         assert all(isinstance(r, BeatportRelease) for r in results)
@@ -334,7 +310,7 @@ class TestGetRelease:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         release = client.get_release(4001)
         assert isinstance(release, BeatportRelease)
         assert release.id == "4001"
@@ -350,7 +326,7 @@ class TestGetRelease:
             status=404,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_release(9999)
         assert result is None
 
@@ -371,7 +347,7 @@ class TestGetTrack:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         track = client.get_track(3001)
         assert isinstance(track, BeatportTrack)
         assert track.id == "3001"
@@ -387,7 +363,7 @@ class TestGetTrack:
             status=404,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_track(9999)
         assert result is None
 
@@ -416,7 +392,7 @@ class TestGetImage:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_image(3001)
         assert result == image_bytes
 
@@ -438,7 +414,7 @@ class TestGetImage:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_image(3001, width=500, height=500)
         assert result == image_bytes
 
@@ -451,7 +427,7 @@ class TestGetImage:
             status=404,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_image(9999)
         assert result is None
 
@@ -473,7 +449,7 @@ class TestGetImage:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_image(3001, width=0, height=0)
         assert result == image_bytes
 
@@ -491,7 +467,7 @@ class TestGetImage:
             status=200,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_image(3001)
         assert result is None
 
@@ -513,7 +489,7 @@ class TestGetImage:
             status=403,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(BeatportAPIError):
             client.get_image(3001)
 
@@ -532,7 +508,7 @@ class TestErrorHandling:
             body=requests.exceptions.ConnectionError("connection refused"),
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(BeatportAPIError, match="Error connecting"):
             client._get("/my/account")
 
@@ -545,7 +521,7 @@ class TestErrorHandling:
             status=500,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         with pytest.raises(BeatportAPIError):
             client._get("/catalog/tracks/1/")
 
@@ -558,7 +534,7 @@ class TestErrorHandling:
             status=500,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_release_tracks(4001)
         assert result == []
 
@@ -589,7 +565,7 @@ class TestErrorHandling:
             status=404,
         )
 
-        client = _make_client()
+        client = make_authed_client()
         result = client.get_release_tracks(4001)
         assert len(result) == 1
         assert result[0].id == "3001"
@@ -611,7 +587,7 @@ class TestClientInit:
             status=200,
         )
 
-        token = _make_token()
+        token = make_token()
         client = Beatport4Client(
             log=MagicMock(),
             client_id="test_id",
@@ -651,7 +627,7 @@ class TestClientInit:
             status=200,
         )
 
-        token = _make_token()
+        token = make_token()
         client = Beatport4Client(
             log=MagicMock(),
             client_id="test_id",
@@ -690,7 +666,7 @@ class TestClientInit:
             status=200,
         )
 
-        expired_token = _make_token(expired=True)
+        expired_token = make_token(expired=True)
         client = Beatport4Client(
             log=MagicMock(),
             client_id="test_id",

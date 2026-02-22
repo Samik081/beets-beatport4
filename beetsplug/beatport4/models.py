@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from beets.dbcore.types import MusicalKey
 
 from beetsplug.beatport4.constants import (
+    BEATPORT_SITE_URL,
     DATE_FORMAT,
     TOKEN_EXPIRY_BUFFER_SECONDS,
     VA_ARTIST_NAME,
@@ -37,11 +38,13 @@ class BeatportOAuthToken:
         )
 
     def is_expired(self) -> bool:
-        """Checks if token is expired"""
+        """Check whether the token is expired or about to expire
+        within the safety buffer.
+        """
         return time.time() + TOKEN_EXPIRY_BUFFER_SECONDS >= self.expires_at
 
     def encode(self) -> dict:
-        """Encodes the class into json serializable object"""
+        """Encode this token as a JSON-serializable dict."""
         return {
             "access_token": self.access_token,
             "expires_at": self.expires_at,
@@ -107,7 +110,7 @@ class BeatportRelease:
 
         url = None
         if "slug" in data:
-            url = f"https://beatport.com/release/{data['slug']}/{data['id']}"
+            url = f"{BEATPORT_SITE_URL}/release/{data['slug']}/{data['id']}"
 
         release_type = None
         if "type" in data:
@@ -152,15 +155,17 @@ class BeatportTrack:
     image_dynamic_url: str | None = None
     mix_name: str | None = None
     release: BeatportRelease | None = None
-    remixers: list | None = None
+    remixers: list[dict] | None = None
 
     @classmethod
     def from_api_response(cls, data: dict) -> BeatportTrack:
-        artists = [
-            BeatportArtist.from_api_response(x)
-            for x in data["artists"]
-            if x is not None
-        ]
+        artists = []
+        if "artists" in data:
+            artists = [
+                BeatportArtist.from_api_response(x)
+                for x in data["artists"]
+                if x is not None
+            ]
         length = timedelta(milliseconds=data.get("length_ms", 0) or 0)
         if not length:
             try:
@@ -203,7 +208,7 @@ class BeatportTrack:
 
         url = None
         if "slug" in data:
-            url = f"https://beatport.com/track/{data['slug']}/{data['id']}"
+            url = f"{BEATPORT_SITE_URL}/track/{data['slug']}/{data['id']}"
 
         return cls(
             id=str(data["id"]),

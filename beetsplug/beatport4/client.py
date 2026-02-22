@@ -40,15 +40,22 @@ class Beatport4Client:
         password: str | None = None,
         beatport_token: BeatportOAuthToken | None = None,
     ) -> None:
-        """Initiate the client and make sure it is correctly authorized.
-        If beatport_token is passed, it is used to make a call to
-        /my/account endpoint to verify the access token is still valid
+        """Initialize the client and ensure it is correctly authorized.
 
-        If the token is not passed, or it is invalid, it authorizes the user
-        using username and password credentials given in the config
-        and uses the token obtained in this way
+        Three authentication paths are attempted in order:
 
-        :param beatport_token:    BeatportOAuthToken
+        1. If *beatport_token* is non-expired, verify it via ``/my/account``.
+        2. If the token is missing, expired, or invalid and *username* /
+           *password* are provided, run the full OAuth authorization flow.
+        3. If neither a usable token nor credentials are available, raise
+           :py:class:`BeatportAPIError`.
+
+        :param log:             Logger instance for debug/warning output.
+        :param client_id:       Beatport API client ID (scraped automatically
+                                when *None*).
+        :param username:        Beatport account username.
+        :param password:        Beatport account password.
+        :param beatport_token:  Previously obtained OAuth token to reuse.
         """
         self._api_base = API_BASE_URL
         self._api_client_id = client_id
@@ -80,12 +87,22 @@ class Beatport4Client:
             )
 
     def _fetch_beatport_client_id(self) -> str:
-        """Fetch Beatport API client ID from the docs script"""
-        html = requests.get(f"{API_BASE_URL}/docs/").content.decode("utf-8")
+        """Fetch Beatport API client ID from the docs script."""
+        try:
+            html = requests.get(
+                f"{API_BASE_URL}/docs/", timeout=10
+            ).content.decode("utf-8")
+        except requests.exceptions.RequestException as e:
+            raise BeatportAPIError(
+                f"Error fetching Beatport docs page: {e}"
+            ) from e
         scripts_matches = SCRIPT_SRC_PATTERN.findall(html)
         for script_url in scripts_matches:
             url = f"https://api.beatport.com{script_url}"
-            js = requests.get(url).content.decode("utf-8")
+            try:
+                js = requests.get(url, timeout=10).content.decode("utf-8")
+            except requests.exceptions.RequestException:
+                continue
             client_id_matches = CLIENT_ID_PATTERN.findall(js)
             if client_id_matches:
                 return client_id_matches[0]
@@ -93,11 +110,11 @@ class Beatport4Client:
 
     def _authorize(self) -> BeatportOAuthToken:
         """Authorize client and fetch access token.
-        Uses username and password provided by the user in the config.
-        Uses authorization_code grant type in Beatport OAuth flow.
 
-        :returns:               Beatport OAuth token
-        :rtype:                 :py:class:`BeatportOAuthToken`
+        Uses the username and password stored on the client instance with the
+        ``authorization_code`` grant type in the Beatport OAuth flow.
+
+        :returns: Beatport OAuth token.
         """
         self._log.debug(
             "Started authorizing to the API using username and password"
@@ -105,75 +122,85 @@ class Beatport4Client:
         if self._api_client_id is None:
             self._api_client_id = self._fetch_beatport_client_id()
 
-        with requests.Session() as s:
-            # Login to get session id and csrf token cookies
-            response = s.post(
-                url=self._make_url("/auth/login/"),
-                json={"username": self.username, "password": self.password},
-            )
-            data = response.json()
-            if "username" not in data or "email" not in data:
-                # response contains error message from Beatport API
-                self._log.debug("Beatport auth error: {0}", data)
-                raise BeatportAPIError(data)
-
-            self._log.debug(
-                "Authorized with username and password as {0} <{1}>",
-                _redact(data["username"]),
-                _redact(data["email"]),
-            )
-
-            # Fetch authorization code
-            response = s.get(
-                url=self._make_url(
-                    "/auth/o/authorize/",
-                    query={
-                        "response_type": "code",
-                        "client_id": self._api_client_id,
-                        "redirect_uri": self._beatport_redirect_uri,
-                    },
-                ),
-                allow_redirects=False,
-            )
-
-            if "invalid_request" in response.content.decode("utf-8"):
-                raise BeatportAPIError(
-                    HTML_PARAGRAPH_PATTERN.findall(
-                        response.content.decode("utf-8")
-                    )[0]
-                )
-
-            # Auth code is available in the Location header
-            next_url = urlparse(self._make_url(response.headers["Location"]))
-            auth_code = parse_qs(next_url.query)["code"][0]
-
-            self._log.debug("Authorization code: {0}", _redact(auth_code))
-
-            # Exchange authorization code for access token
-            response = s.post(
-                url=self._make_url(
-                    "/auth/o/token/",
-                    query={
-                        "code": auth_code,
-                        "grant_type": "authorization_code",
-                        "redirect_uri": self._beatport_redirect_uri,
-                        "client_id": self._api_client_id,
+        try:
+            with requests.Session() as s:
+                # Login to get session id and csrf token cookies
+                response = s.post(
+                    url=self._make_url("/auth/login/"),
+                    json={
+                        "username": self.username,
+                        "password": self.password,
                     },
                 )
-            )
-            data = response.json()
-            self._log.debug(
-                "Exchanged authorization code for the access token: {0}",
-                _redact(json.dumps(data)),
-            )
+                response.raise_for_status()
+                data = response.json()
+                if "username" not in data or "email" not in data:
+                    # response contains error message from Beatport API
+                    self._log.debug("Beatport auth error: {0}", data)
+                    raise BeatportAPIError(data)
 
-            return BeatportOAuthToken.from_api_response(data)
+                self._log.debug(
+                    "Authorized with username and password as {0} <{1}>",
+                    _redact(data["username"]),
+                    _redact(data["email"]),
+                )
+
+                # Fetch authorization code
+                response = s.get(
+                    url=self._make_url(
+                        "/auth/o/authorize/",
+                        query={
+                            "response_type": "code",
+                            "client_id": self._api_client_id,
+                            "redirect_uri": self._beatport_redirect_uri,
+                        },
+                    ),
+                    allow_redirects=False,
+                )
+
+                body = response.content.decode("utf-8")
+                if "invalid_request" in body:
+                    raise BeatportAPIError(
+                        HTML_PARAGRAPH_PATTERN.findall(body)[0]
+                    )
+
+                # Auth code is available in the Location header
+                next_url = urlparse(
+                    self._make_url(response.headers["Location"])
+                )
+                auth_code = parse_qs(next_url.query)["code"][0]
+
+                self._log.debug("Authorization code: {0}", _redact(auth_code))
+
+                # Exchange authorization code for access token
+                response = s.post(
+                    url=self._make_url(
+                        "/auth/o/token/",
+                        query={
+                            "code": auth_code,
+                            "grant_type": "authorization_code",
+                            "redirect_uri": self._beatport_redirect_uri,
+                            "client_id": self._api_client_id,
+                        },
+                    )
+                )
+                response.raise_for_status()
+                data = response.json()
+                self._log.debug(
+                    "Exchanged authorization code for the access token: {0}",
+                    _redact(json.dumps(data)),
+                )
+
+                return BeatportOAuthToken.from_api_response(data)
+        except requests.exceptions.RequestException as e:
+            raise BeatportAPIError(
+                f"Error during Beatport authorization: {e}"
+            ) from e
 
     def get_my_account(self) -> BeatportMyAccount:
         """Get information about current account.
 
-        :returns:               The user account information
-        :rtype:                 :py:class:`BeatportMyAccount`
+        :returns: The user account information.
         """
         response = self._get("/my/account")
         return BeatportMyAccount.from_api_response(response)
@@ -187,16 +214,13 @@ class Beatport4Client:
         """Perform a search of the Beatport catalogue.
 
         :param query:           Query string
-        :param model:           Type of releases to search for, can be
+        :param model:           Type of results to search for, can be
                                 'releases' or 'tracks'
         :param details:         Retrieve additional information about the
                                 search results. Currently this will fetch
                                 the tracklist for releases and do nothing for
                                 tracks
         :returns:               Search results
-        :rtype:                 generator that yields
-                                py:class:`BeatportRelease` or
-                                :py:class:`BeatportTrack`
         """
         response = self._get(
             "catalog/search",
@@ -221,25 +245,21 @@ class Beatport4Client:
 
         :param beatport_id:     Beatport ID of the release
         :returns:               The matching release
-        :rtype:                 :py:class:`BeatportRelease`
         """
         try:
             response = self._get(f"/catalog/releases/{beatport_id}/")
         except BeatportAPIError as e:
             self._log.debug("Failed to fetch release {}: {}", beatport_id, e)
             return None
-        if response:
-            release = BeatportRelease.from_api_response(response)
-            release.tracks = self.get_release_tracks(beatport_id)
-            return release
-        return None
+        release = BeatportRelease.from_api_response(response)
+        release.tracks = self.get_release_tracks(beatport_id)
+        return release
 
     def get_release_tracks(self, beatport_id: int | str) -> list[BeatportTrack]:
         """Get all tracks for a given release.
 
         :param beatport_id:     Beatport ID of the release
         :returns:               Tracks in the matching release
-        :rtype:                 list of :py:class:`BeatportTrack`
         """
         try:
             response = self._get(
@@ -253,8 +273,9 @@ class Beatport4Client:
                 e,
             )
             return []
-        # we are not using BeatportTrack.from_api_response(t) because
-        # "number" field is missing
+        # The release-tracks endpoint returns abbreviated track objects
+        # missing fields like 'number' (track position), so we fetch
+        # each track individually via get_track().
         tracks = [self.get_track(t["id"]) for t in response if t is not None]
         return [t for t in tracks if t is not None]
 
@@ -263,7 +284,6 @@ class Beatport4Client:
 
         :param beatport_id:     Beatport ID of the track
         :returns:               The matching track
-        :rtype:                 :py:class:`BeatportTrack`
         """
         try:
             response = self._get(f"/catalog/tracks/{beatport_id}/")
@@ -286,12 +306,13 @@ class Beatport4Client:
         width: int | None = None,
         height: int | None = None,
     ) -> bytes | None:
-        """Fetches image from Beatport in a binary format
+        """Fetches image from Beatport in a binary format.
 
         :param beatport_id: Beatport ID of the track
         :param width:       Width of the image to fetch using dynamic uri
         :param height:      Height of the image to fetch using dynamic uri
-        :returns:           Image as a binary data or None if one not found
+        :returns:           Image as binary data or None if not found
+        :raises BeatportAPIError: If the image fetch request fails.
         """
         track = self.get_track(beatport_id)
         if track is None:
@@ -315,7 +336,7 @@ class Beatport4Client:
 
         try:
             headers = self._get_request_headers()
-            self._log.debug(f"Fetching image from URL: {image_url}")
+            self._log.debug("Fetching image from URL: {}", image_url)
             response = requests.get(image_url, headers=headers)
         except requests.exceptions.RequestException as e:
             raise BeatportAPIError(
@@ -323,7 +344,8 @@ class Beatport4Client:
             ) from e
         if not response:
             raise BeatportAPIError(
-                f"Error {response.status_code} for '{image_url}"
+                f"Error {response.status_code} for '{image_url}'",
+                status_code=response.status_code,
             )
 
         return response.content
@@ -345,7 +367,8 @@ class Beatport4Client:
             ) from e
         if not response or response.status_code >= 400:
             raise BeatportAPIError(
-                f"Error {response.status_code} for '{response.request.path_url}"
+                f"Error {response.status_code} for '{response.request.path_url}'",
+                status_code=response.status_code,
             )
 
         json_response = response.json()
