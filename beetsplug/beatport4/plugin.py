@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING
 import beets
 import beets.ui
 import confuse  # type: ignore[import-untyped]
-from beets import art
+from beetsplug._utils import art
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 from beets.metadata_plugins import MetadataSourcePlugin
 from beets.util import cached_classproperty
