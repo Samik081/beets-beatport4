@@ -142,12 +142,13 @@ class Beatport4Plugin(MetadataSourcePlugin):
             )
 
     def import_task_files(self, task: object) -> None:
-        """Embed album art from Beatport after a track has been written.
+        """Embed album art from Beatport after tracks have been written.
 
-        Skips art embedding when: the Beatport client is not initialized,
-        the ``art`` config option is disabled, the matched data source is
-        not Beatport, or ``art_overwrite`` is disabled and the file already
-        contains artwork.
+        Fetches the cover image once per release and embeds it into each
+        imported track.  Skips art embedding when: the Beatport client is
+        not initialized, the ``art`` config option is disabled, the
+        matched data source is not Beatport, or ``art_overwrite`` is
+        disabled and a file already contains artwork.
 
         :param task: import_task_files event parameter
         """
@@ -157,44 +158,49 @@ class Beatport4Plugin(MetadataSourcePlugin):
             )
             return
         try:
-            if self.config["art"].get():
-                if task.match.info.data_source != self.data_source:
-                    return
+            if not self.config["art"].get():
+                return
+            if task.match.info.data_source != self.data_source:
+                return
 
-                if not self.config["art_overwrite"].get() and art.get_art(
-                    self._log, task.item
-                ):
-                    self._log.debug(
-                        "File already contains an art, skipping fetching new"
-                    )
-                    return
+            items = task.imported_items()
+            if not items:
+                return
 
-                for track in task.imported_items():
-                    track_id = track.get("mb_trackid")
-                    image_data = self.client.get_image(
-                        track_id,
-                        self.config["art_width"].get(),
-                        self.config["art_height"].get(),
-                    )
-                    if image_data is None:
+            # All tracks on a Beatport release share the same cover
+            # art, so fetch the image once using the first track.
+            first_id = items[0].get("mb_trackid")
+            image_data = self.client.get_image(
+                first_id,
+                self.config["art_width"].get(),
+                self.config["art_height"].get(),
+            )
+            if image_data is None:
+                self._log.debug(
+                    "No image data for track {}; skipping",
+                    first_id,
+                )
+                return
+
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False) as temp_image:
+                    tmp_path = temp_image.name
+                    temp_image.write(image_data)
+
+                overwrite = self.config["art_overwrite"].get()
+                for item in items:
+                    if not overwrite and art.get_art(self._log, item):
                         self._log.debug(
-                            "No image data for track {}; skipping",
-                            track_id,
+                            "Already has art, skipping: {0}",
+                            item,
                         )
                         continue
-
-                    tmp_path = None
-                    try:
-                        with tempfile.NamedTemporaryFile(
-                            delete=False
-                        ) as temp_image:
-                            tmp_path = temp_image.name
-                            temp_image.write(image_data)
-                        art.embed_item(self._log, task.item, tmp_path)
-                    finally:
-                        if tmp_path:
-                            os.remove(tmp_path)
-        except (OSError, BeatportAPIError, AttributeError) as e:
+                    art.embed_item(self._log, item, tmp_path)
+            finally:
+                if tmp_path:
+                    os.remove(tmp_path)
+        except (OSError, BeatportAPIError) as e:
             self._log.warning("Failed to embed image: {}", e)
 
     def _prompt_for_token(self) -> BeatportOAuthToken:
