@@ -3,7 +3,6 @@
 **Beatport API v4 plugin for [beets](https://github.com/beetbox/beets)**
 
 [![PyPI version](https://img.shields.io/pypi/v/beets-beatport4.svg)](https://pypi.python.org/pypi/beets-beatport4)
-[![Python versions](https://img.shields.io/pypi/pyversions/beets-beatport4.svg)](https://pypi.python.org/pypi/beets-beatport4)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Test (latest beets release)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-release.yml/badge.svg)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-release.yml)
 [![Test (beets master)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-master.yml/badge.svg)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-master.yml)
@@ -161,6 +160,27 @@ beatport4:
 | `password` | string | *(none)* | Your Beatport password (for auto-authorization) |
 | `client_id` | string | *(auto)* | Beatport API client ID (scraped automatically from docs) |
 
+Full example with all defaults:
+
+```yaml
+beatport4:
+    art: no
+    art_overwrite: no
+    art_width: 0
+    art_height: 0
+    singletons_with_album_metadata:
+        enabled: no
+        year: yes
+        album: yes
+        label: yes
+        catalognum: yes
+        albumartist: yes
+        track_number: yes
+    username:
+    password:
+    client_id:  # optional, scraped automatically from Beatport docs
+```
+
 ---
 
 ## Debug Logging & Sensitive Data
@@ -180,7 +200,6 @@ BEATPORT4_DEBUG_DISABLE_REDACTION=1 beet -vv import /path/to/music
 ```powershell
 $env:BEATPORT4_DEBUG_DISABLE_REDACTION = "1"
 beet -vv import C:\path\to\music
-Remove-Item Env:\BEATPORT4_DEBUG_DISABLE_REDACTION  # unset after use
 ```
 
 **Windows (cmd):**
@@ -188,7 +207,6 @@ Remove-Item Env:\BEATPORT4_DEBUG_DISABLE_REDACTION  # unset after use
 ```batch
 set BEATPORT4_DEBUG_DISABLE_REDACTION=1
 beet -vv import C:\path\to\music
-set BEATPORT4_DEBUG_DISABLE_REDACTION=  &REM unset after use
 ```
 
 ---
