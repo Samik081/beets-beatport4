@@ -10,7 +10,7 @@ authors = [
 ]
 description = "Plugin for beets (http://beets.io) to replace stock beatport plugin which is not yet compatible with Beatport API v4."
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 license = "MIT"
 classifiers = [
     'Topic :: Multimedia :: Sound/Audio',
@@ -19,13 +19,12 @@ classifiers = [
     'Environment :: Web Environment',
     'Programming Language :: Python',
     'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.6',
-    'Programming Language :: Python :: 3.7',
     'Programming Language :: Python :: 3.8',
     'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
 ]
 dependencies = [
     "beets>=2.5.1",
@@ -39,6 +38,8 @@ dev = [
     "types-requests",
     "pytest",
     "pytest-mock",
+    "ruff",
+    "responses",
 ]
 
 [project.urls]
@@ -48,5 +49,16 @@ dev = [
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
-[tool.setuptools]
-packages = ["beetsplug"]
+[tool.setuptools.packages.find]
+include = ["beetsplug*"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF"]
+ignore = ["E501", "SIM108"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["beetsplug"]

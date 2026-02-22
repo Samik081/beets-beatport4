@@ -1,0 +1,56 @@
+{
+  "releases": [],
+  "tracks": [
+    {
+      "id": 3001,
+      "name": "Midnight Circuit",
+      "slug": "midnight-circuit",
+      "artists": [
+        {"id": 101, "name": "Synthwave Runner"}
+      ],
+      "length_ms": 420000,
+      "key": {"name": "A Minor"},
+      "bpm": 126,
+      "sub_genre": {"name": "Melodic House & Techno"},
+      "genre": {"name": "House"},
+      "mix_name": "Original Mix",
+      "number": 1,
+      "release": {
+        "id": 4001,
+        "name": "Neon Dreams EP",
+        "image": {
+          "uri": "https://geo-media.beatport.com/image/neon-dreams.jpg",
+          "dynamic_uri": "https://geo-media.beatport.com/image/neon-dreams/{w}x{h}.jpg"
+        }
+      },
+      "remixers": []
+    },
+    {
+      "id": 3002,
+      "name": "Digital Sunrise",
+      "slug": "digital-sunrise",
+      "artists": [
+        {"id": 102, "name": "Retro Pulse"}
+      ],
+      "length_ms": 385000,
+      "key": {"name": "Eb Major"},
+      "bpm": 122,
+      "sub_genre": null,
+      "genre": {"name": "Progressive House"},
+      "mix_name": "Extended Mix",
+      "number": 2,
+      "release": {
+        "id": 4001,
+        "name": "Neon Dreams EP",
+        "image": {
+          "uri": "https://geo-media.beatport.com/image/neon-dreams.jpg",
+          "dynamic_uri": "https://geo-media.beatport.com/image/neon-dreams/{w}x{h}.jpg"
+        }
+      },
+      "remixers": [{"id": 102, "name": "Retro Pulse"}]
+    }
+  ],
+  "page": 1,
+  "per_page": 5,
+  "count": 2
+}

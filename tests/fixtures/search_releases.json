@@ -1,0 +1,33 @@
+{
+  "releases": [
+    {
+      "id": 4001,
+      "name": "Neon Dreams EP",
+      "slug": "neon-dreams-ep",
+      "artists": [
+        {"id": 101, "name": "Synthwave Runner"}
+      ],
+      "label": {"id": 201, "name": "Future Sounds"},
+      "catalog_number": "FS042",
+      "type": {"name": "EP"},
+      "publish_date": "2024-03-15"
+    },
+    {
+      "id": 4002,
+      "name": "Neon Dreams Remixed",
+      "slug": "neon-dreams-remixed",
+      "artists": [
+        {"id": 101, "name": "Synthwave Runner"},
+        {"id": 102, "name": "Retro Pulse"}
+      ],
+      "label": {"id": 201, "name": "Future Sounds"},
+      "catalog_number": "FS043",
+      "type": {"name": "EP"},
+      "publish_date": "2024-04-20"
+    }
+  ],
+  "tracks": [],
+  "page": 1,
+  "per_page": 5,
+  "count": 2
+}

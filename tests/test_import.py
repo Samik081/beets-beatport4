@@ -15,12 +15,12 @@ class TestModuleImport:
 
     def test_import_data_classes(self):
         from beetsplug.beatport4 import (  # noqa: F401
-            BeatportOAuthToken,
-            BeatportLabel,
             BeatportArtist,
+            BeatportLabel,
+            BeatportMyAccount,
+            BeatportOAuthToken,
             BeatportRelease,
             BeatportTrack,
-            BeatportMyAccount,
         )
 
     def test_import_exception(self):
@@ -32,25 +32,25 @@ class TestPluginInterface:
         assert isinstance(plugin, MetadataSourcePlugin)
 
     def test_data_source(self, plugin):
-        assert plugin.data_source == 'Beatport'
+        assert plugin.data_source == "Beatport"
 
     def test_has_candidates(self, plugin):
-        assert hasattr(plugin, 'candidates')
+        assert hasattr(plugin, "candidates")
 
     def test_has_item_candidates(self, plugin):
-        assert hasattr(plugin, 'item_candidates')
+        assert hasattr(plugin, "item_candidates")
 
     def test_has_album_for_id(self, plugin):
-        assert hasattr(plugin, 'album_for_id')
+        assert hasattr(plugin, "album_for_id")
 
     def test_has_track_for_id(self, plugin):
-        assert hasattr(plugin, 'track_for_id')
+        assert hasattr(plugin, "track_for_id")
 
     def test_default_config_tokenfile(self, plugin):
-        assert plugin.config['tokenfile'].get() == 'beatport_token.json'
+        assert plugin.config["tokenfile"].get() == "beatport_token.json"
 
     def test_default_config_art(self, plugin):
-        assert plugin.config['art'].get() is False
+        assert plugin.config["art"].get() is False
 
     def test_default_config_penalty(self, plugin):
-        assert plugin.config['data_source_mismatch_penalty'].get() == 0.5
+        assert plugin.config["data_source_mismatch_penalty"].get() == 0.5
