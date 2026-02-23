@@ -160,7 +160,10 @@ class Beatport4Plugin(MetadataSourcePlugin):
         try:
             if not self.config["art"].get():
                 return
-            if task.match.info.data_source != self.data_source:
+            if (
+                not task.match
+                or task.match.info.data_source != self.data_source
+            ):
                 return
 
             items = task.imported_items()
