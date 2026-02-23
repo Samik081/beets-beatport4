@@ -536,10 +536,14 @@ class TestImportTaskFiles:
         plugin_with_client.config["art"].set(True)
         plugin_with_client.config["art_overwrite"].set(False)
         task = _make_mock_task()
+        mock_client.get_image.return_value = b"\x89PNG fake"
         with patch("beetsplug.beatport4.plugin.art") as mock_art:
             mock_art.get_art.return_value = b"existing art"
             plugin_with_client.import_task_files(task)
-            mock_client.get_image.assert_not_called()
+            # Image is fetched once for the release
+            mock_client.get_image.assert_called_once()
+            # But embedding is skipped because art already exists
+            mock_art.embed_item.assert_not_called()
 
     def test_embeds_art_successfully(self, plugin_with_client, mock_client):
         plugin_with_client.config["art"].set(True)
@@ -552,22 +556,21 @@ class TestImportTaskFiles:
             mock_client.get_image.assert_called_once()
             mock_art.embed_item.assert_called_once()
 
-    def test_continues_on_none_image_data(
+    def test_returns_early_on_none_image_data(
         self, plugin_with_client, mock_client
     ):
-        """Verifies Issue #4 fix: None image → continue, not return."""
+        """Image fetched once per release; None → early return."""
         plugin_with_client.config["art"].set(True)
         plugin_with_client.config["art_overwrite"].set(True)
         task = _make_mock_task(track_ids=["111", "222"])
-        # First track returns None, second returns data
-        mock_client.get_image.side_effect = [None, b"\x89PNG"]
+        mock_client.get_image.return_value = None
 
         with patch("beetsplug.beatport4.plugin.art") as mock_art:
             plugin_with_client.import_task_files(task)
-            # get_image called for both tracks
-            assert mock_client.get_image.call_count == 2
-            # embed_item called only for the second track
-            mock_art.embed_item.assert_called_once()
+            # get_image called once (for the first track)
+            mock_client.get_image.assert_called_once()
+            # No embedding attempted
+            mock_art.embed_item.assert_not_called()
 
     def test_handles_get_image_api_error(self, plugin_with_client, mock_client):
         plugin_with_client.config["art"].set(True)
