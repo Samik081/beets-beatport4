@@ -1,0 +1,24 @@
+{
+  "id": 3001,
+  "name": "Midnight Circuit",
+  "slug": "midnight-circuit",
+  "artists": [
+    {"id": 101, "name": "Synthwave Runner"}
+  ],
+  "length_ms": 420000,
+  "key": {"name": "A Minor"},
+  "bpm": 126,
+  "sub_genre": {"name": "Melodic House & Techno"},
+  "genre": {"name": "House"},
+  "mix_name": "Original Mix",
+  "number": 1,
+  "release": {
+    "id": 4001,
+    "name": "Neon Dreams EP",
+    "image": {
+      "uri": "https://geo-media.beatport.com/image/neon-dreams.jpg",
+      "dynamic_uri": "https://geo-media.beatport.com/image/neon-dreams/{w}x{h}.jpg"
+    }
+  },
+  "remixers": []
+}

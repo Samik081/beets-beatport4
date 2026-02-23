@@ -1,0 +1,5 @@
+{
+  "access_token": "new_access_tok_abc123",
+  "expires_in": 3600,
+  "refresh_token": "new_refresh_tok_xyz789"
+}

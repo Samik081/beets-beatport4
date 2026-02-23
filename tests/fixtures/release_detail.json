@@ -1,0 +1,16 @@
+{
+  "id": 4001,
+  "name": "Neon Dreams EP",
+  "slug": "neon-dreams-ep",
+  "artists": [
+    {"id": 101, "name": "Synthwave Runner"}
+  ],
+  "label": {"id": 201, "name": "Future Sounds"},
+  "catalog_number": "FS042",
+  "type": {"name": "EP"},
+  "publish_date": "2024-03-15",
+  "image": {
+    "uri": "https://geo-media.beatport.com/image/neon-dreams.jpg",
+    "dynamic_uri": "https://geo-media.beatport.com/image/neon-dreams/{w}x{h}.jpg"
+  }
+}
