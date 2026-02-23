@@ -516,9 +516,7 @@ class TestImportTaskFiles:
         # Should warn and return without calling get_image
         task.imported_items.assert_not_called()
 
-    def test_skips_when_match_is_none(
-        self, plugin_with_client, mock_client
-    ):
+    def test_skips_when_match_is_none(self, plugin_with_client, mock_client):
         """Regression: 'as-is' imports set task.match = None."""
         plugin_with_client.config["art"].set(True)
         task = MagicMock()
