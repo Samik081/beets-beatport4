@@ -107,7 +107,7 @@ class TestGetTrackInfo:
         assert info.data_source == "Beatport"
         assert info.bpm == 128
         assert info.initial_key == "D#maj"
-        assert info.genre == "Tech House"
+        assert info.genres == ["Tech House"]
         assert info.data_url is not None
 
     def test_multiple_artists_joined(self, plugin):

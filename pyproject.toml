@@ -25,7 +25,7 @@ classifiers = [
     'Programming Language :: Python :: 3.13',
 ]
 dependencies = [
-    "beets>=2.5.1",
+    "beets>=2.7.0",
     "requests",
     "confuse",
 ]

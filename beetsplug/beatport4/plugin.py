@@ -341,7 +341,6 @@ class Beatport4Plugin(MetadataSourcePlugin):
             media=MEDIA_TYPE,
             data_source=self.data_source,
             data_url=release.url,
-            genre=None,
         )
 
     def _get_track_info(self, track: BeatportTrack) -> TrackInfo:
@@ -409,7 +408,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
             data_url=track.url,
             bpm=track.bpm,
             initial_key=track.initial_key,
-            genre=track.genre,
+            genres=[track.genre] if track.genre else None,
             **extra_fields,
         )
 
