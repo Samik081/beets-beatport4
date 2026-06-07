@@ -67,6 +67,8 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 },
             }
         )
+        self.config["username"].redact = True
+        self.config["password"].redact = True
         self.client: Beatport4Client | None = None
         self.register_listener("import_begin", self.setup)
         self.register_listener("import_task_files", self.import_task_files)

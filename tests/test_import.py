@@ -54,3 +54,7 @@ class TestPluginInterface:
 
     def test_default_config_penalty(self, plugin):
         assert plugin.config["data_source_mismatch_penalty"].get() == 0.5
+
+    def test_credentials_config_is_redacted(self, plugin):
+        assert plugin.config["username"].redact is True
+        assert plugin.config["password"].redact is True
