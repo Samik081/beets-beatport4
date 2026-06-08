@@ -1,0 +1,43 @@
+name: Test (Poetry build)
+
+# Poetry reads `requires-python` as an exact compatibility bound, so if this
+# plugin's range ever exceeds beets' own `requires-python`, dependency
+# resolution fails (see issue #33). This workflow runs Poetry's resolver
+# against both the latest beets release and beets master so the constraint
+# desync is caught early — on PRs and via the daily scheduled run.
+
+on:
+  pull_request:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  poetry:
+    name: Poetry resolve (beets ${{ matrix.beets-source }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        beets-source: [release, master]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Resolve dependencies (latest beets release)
+        if: matrix.beets-source == 'release'
+        run: poetry lock
+
+      - name: Resolve dependencies (beets master)
+        if: matrix.beets-source == 'master'
+        run: poetry add --lock "beets @ git+https://github.com/beetbox/beets.git@master"

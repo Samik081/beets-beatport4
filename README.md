@@ -6,6 +6,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Test (latest beets release)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-release.yml/badge.svg)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-release.yml)
 [![Test (beets master)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-master.yml/badge.svg)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-master.yml)
+[![Test (Poetry build)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-poetry.yml/badge.svg)](https://github.com/Samik081/beets-beatport4/actions/workflows/test-poetry.yml)
 
 A drop-in replacement for the stock beets beatport plugin, updated for Beatport API v4.
 
