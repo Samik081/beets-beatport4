@@ -66,7 +66,6 @@ body:
         ```
         beet config
         ```
-        **Remove your username/password before pasting!**
       render: yaml
       placeholder: |
         beatport4:
