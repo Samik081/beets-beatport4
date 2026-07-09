@@ -56,6 +56,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 "art_overwrite": False,
                 "art_width": None,
                 "art_height": None,
+                "genres": "sub",
                 "singletons_with_album_metadata": {
                     "enabled": False,
                     "year": True,
@@ -422,9 +423,22 @@ class Beatport4Plugin(MetadataSourcePlugin):
             data_url=track.url,
             bpm=track.bpm,
             initial_key=track.initial_key,
-            genres=[track.genre] if track.genre else None,
+            genres=self._get_genres(track),
             **extra_fields,
         )
+
+    def _get_genres(self, track: BeatportTrack) -> list[str] | None:
+        """Build the TrackInfo genres list from the track's Beatport genre
+        and sub-genre according to the ``genres`` config option.
+        """
+        mode = self.config["genres"].as_choice(["sub", "main", "both"])
+        if mode == "sub":
+            genres = [track.sub_genre or track.genre]
+        elif mode == "main":
+            genres = [track.genre]
+        else:
+            genres = [track.genre, track.sub_genre]
+        return [g for g in genres if g] or None
 
     def _get_artist(self, artists: object) -> tuple[str, str | None]:
         """Returns an artist string (all artists) and an artist_id (the main
