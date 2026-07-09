@@ -174,7 +174,19 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
             # All tracks on a Beatport release share the same cover
             # art, so fetch the image once using the first track.
-            first_id = items[0].get("mb_trackid")
+            # Take the track ID from the match info rather than the
+            # imported items: other plugins (e.g. zero) may blank
+            # mb_trackid on the items before this handler runs (#38).
+            info = task.match.info
+            if isinstance(info, AlbumInfo):
+                first_id = next(
+                    (t.track_id for t in info.tracks if t.track_id), None
+                )
+            else:
+                first_id = info.track_id
+            if not first_id:
+                self._log.debug("No Beatport track ID in match; skipping art")
+                return
             image_data = self.client.get_image(
                 first_id,
                 self.config["art_width"].get(),
