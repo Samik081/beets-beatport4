@@ -25,6 +25,7 @@ For more info, see [this issue](https://github.com/beetbox/beets/issues/3862). A
 - [Album Art](#fetching-and-embedding-album-art)
   - [Image size](#image-size)
 - [Singleton Album Metadata](#singleton-album-metadata)
+- [Genres](#genres)
 - [Configuration Reference](#configuration-reference)
 - [Debug Logging & Sensitive Data](#debug-logging--sensitive-data)
 
@@ -146,6 +147,26 @@ beatport4:
 
 ---
 
+## Genres
+
+Beatport tracks always carry a main genre (e.g. `Trance (Main Floor)`) and, for some genres, a more specific sub-genre (e.g. `Hard Trance`). The `genres` option controls which of them the plugin passes to beets' multi-value `genres` field:
+
+```yaml
+beatport4:
+    genres: sub   # one of: sub (default), main, both
+```
+
+| Value | Result for a track with genre `Trance (Main Floor)` and sub-genre `Hard Trance` |
+|-------|-----------------------------------------------------------------------------|
+| `sub` *(default)* | `Hard Trance` — the sub-genre, falling back to the main genre when the track has no sub-genre |
+| `main` | `Trance (Main Floor)` — always the main genre |
+| `both` | `Trance (Main Floor)`, `Hard Trance` — both, main genre first |
+
+> [!NOTE]
+> Not every Beatport track has a sub-genre — for those, all three settings produce just the main genre.
+
+---
+
 ## Configuration Reference
 
 | Option | Type | Default | Description |
@@ -154,6 +175,7 @@ beatport4:
 | `art_overwrite` | bool | `no` | Overwrite existing art if already present |
 | `art_width` | int | *(none)* | Target image width in pixels (0 or omit to disable resizing) |
 | `art_height` | int | *(none)* | Target image height in pixels (0 or omit to disable resizing) |
+| `genres` | `sub` \| `main` \| `both` | `sub` | Which Beatport genre fields go into beets' `genres`: sub-genre (falling back to genre), main genre, or both |
 | `singletons_with_album_metadata.enabled` | bool | `no` | Fetch release data for singleton imports |
 | `singletons_with_album_metadata.year` | bool | `yes` | Populate release date fields |
 | `singletons_with_album_metadata.album` | bool | `yes` | Populate album name |
@@ -173,6 +195,7 @@ beatport4:
     art_overwrite: no
     art_width: 0
     art_height: 0
+    genres: sub
     singletons_with_album_metadata:
         enabled: no
         year: yes
