@@ -498,13 +498,16 @@ class TestPluginSetup:
 def _make_mock_task(data_source="Beatport", track_ids=None):
     """Create a mock import task with the given data source."""
     task = MagicMock()
-    task.match.info.data_source = data_source
-    items = []
-    for tid in track_ids or ["123"]:
-        item = MagicMock()
-        item.get.return_value = tid
-        items.append(item)
-    task.imported_items.return_value = items
+    track_ids = track_ids or ["123"]
+    task.match.info = AlbumInfo(
+        album="Album",
+        album_id="1000",
+        artist="Artist",
+        artist_id="2000",
+        tracks=[TrackInfo(track_id=tid) for tid in track_ids],
+        data_source=data_source,
+    )
+    task.imported_items.return_value = [MagicMock() for _ in track_ids]
     return task
 
 
@@ -563,6 +566,54 @@ class TestImportTaskFiles:
             plugin_with_client.import_task_files(task)
             mock_client.get_image.assert_called_once()
             mock_art.embed_item.assert_called_once()
+
+    def test_uses_match_track_id_not_item_mb_trackid(
+        self, plugin_with_client, mock_client
+    ):
+        """Regression (#38): plugins like zero can blank mb_trackid on the
+        imported items before this handler runs, so the track ID must come
+        from the match info, not the items."""
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = _make_mock_task(track_ids=["123"])
+        # Simulate the zero plugin having cleared mb_trackid
+        for item in task.imported_items.return_value:
+            item.get.return_value = ""
+        mock_client.get_image.return_value = b"\x89PNG fake"
+
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            plugin_with_client.import_task_files(task)
+            mock_client.get_image.assert_called_once()
+            assert mock_client.get_image.call_args[0][0] == "123"
+            mock_art.embed_item.assert_called_once()
+
+    def test_singleton_uses_match_track_id(
+        self, plugin_with_client, mock_client
+    ):
+        """Singleton imports carry a TrackInfo match instead of AlbumInfo."""
+        plugin_with_client.config["art"].set(True)
+        plugin_with_client.config["art_overwrite"].set(True)
+        task = MagicMock()
+        task.match.info = TrackInfo(track_id="456", data_source="Beatport")
+        task.imported_items.return_value = [MagicMock()]
+        mock_client.get_image.return_value = b"\x89PNG fake"
+
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            plugin_with_client.import_task_files(task)
+            mock_client.get_image.assert_called_once()
+            assert mock_client.get_image.call_args[0][0] == "456"
+            mock_art.embed_item.assert_called_once()
+
+    def test_skips_when_match_has_no_track_ids(
+        self, plugin_with_client, mock_client
+    ):
+        plugin_with_client.config["art"].set(True)
+        task = _make_mock_task(track_ids=[None])
+
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            plugin_with_client.import_task_files(task)
+            mock_client.get_image.assert_not_called()
+            mock_art.embed_item.assert_not_called()
 
     def test_returns_early_on_none_image_data(
         self, plugin_with_client, mock_client
