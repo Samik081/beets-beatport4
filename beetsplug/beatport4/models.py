@@ -151,6 +151,7 @@ class BeatportTrack:
     url: str | None = None
     bpm: int | None = None
     genre: str | None = None
+    sub_genre: str | None = None
     image_url: str | None = None
     image_dynamic_url: str | None = None
     mix_name: str | None = None
@@ -185,10 +186,11 @@ class BeatportTrack:
             bpm = int(data["bpm"])
 
         genre = None
-        if data.get("sub_genre"):
-            genre = str(data["sub_genre"]["name"])
-        elif data.get("genre"):
+        if data.get("genre"):
             genre = str(data["genre"]["name"])
+        sub_genre = None
+        if data.get("sub_genre"):
+            sub_genre = str(data["sub_genre"]["name"])
 
         mix_name = data.get("mix_name")
         number = data.get("number")
@@ -220,6 +222,7 @@ class BeatportTrack:
             url=url,
             bpm=bpm,
             genre=genre,
+            sub_genre=sub_genre,
             image_url=image_url,
             image_dynamic_url=image_dynamic_url,
             mix_name=mix_name,
