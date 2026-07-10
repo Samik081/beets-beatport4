@@ -127,14 +127,23 @@ class TestBeatportTrack:
         assert track.url is not None
         assert track.length.total_seconds() == 360.0
 
-    def test_sub_genre_precedence(self, sample_track_data):
+    def test_genre_and_sub_genre_parsed(self, sample_track_data):
         track = BeatportTrack.from_api_response(sample_track_data)
-        assert track.genre == "Tech House"
+        assert track.genre == "House"
+        assert track.sub_genre == "Tech House"
 
-    def test_genre_fallback(self, sample_track_data):
+    def test_genre_only(self, sample_track_data):
         del sample_track_data["sub_genre"]
         track = BeatportTrack.from_api_response(sample_track_data)
         assert track.genre == "House"
+        assert track.sub_genre is None
+
+    def test_no_genre_data(self, sample_track_data):
+        del sample_track_data["sub_genre"]
+        del sample_track_data["genre"]
+        track = BeatportTrack.from_api_response(sample_track_data)
+        assert track.genre is None
+        assert track.sub_genre is None
 
     def test_length_fallback_to_string(self, sample_track_data):
         sample_track_data["length_ms"] = 0

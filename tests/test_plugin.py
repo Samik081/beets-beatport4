@@ -4,6 +4,8 @@ import json
 from datetime import datetime, timedelta
 from unittest.mock import MagicMock, patch
 
+import confuse
+import pytest
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 
 from beetsplug.beatport4 import (
@@ -35,7 +37,8 @@ def _make_bp_track(
     number=1,
     bpm=128,
     initial_key="D#maj",
-    genre="Tech House",
+    genre="House",
+    sub_genre="Tech House",
     url="https://beatport.com/track/test-track/300",
 ):
     return BeatportTrack(
@@ -48,6 +51,7 @@ def _make_bp_track(
         bpm=bpm,
         initial_key=initial_key,
         genre=genre,
+        sub_genre=sub_genre,
         url=url,
     )
 
@@ -119,6 +123,47 @@ class TestGetTrackInfo:
         info = plugin._get_track_info(track)
         assert "Alice" in info.artist
         assert "Bob" in info.artist
+
+
+class TestGetTrackInfoGenres:
+    def test_default_sub_mode_prefers_sub_genre(self, plugin):
+        track = _make_bp_track(genre="House", sub_genre="Tech House")
+        info = plugin._get_track_info(track)
+        assert info.genres == ["Tech House"]
+
+    def test_sub_mode_falls_back_to_main_genre(self, plugin):
+        track = _make_bp_track(genre="House", sub_genre=None)
+        info = plugin._get_track_info(track)
+        assert info.genres == ["House"]
+
+    def test_main_mode_uses_main_genre_only(self, plugin):
+        plugin.config["genres"] = "main"
+        track = _make_bp_track(genre="House", sub_genre="Tech House")
+        info = plugin._get_track_info(track)
+        assert info.genres == ["House"]
+
+    def test_both_mode_main_genre_first(self, plugin):
+        plugin.config["genres"] = "both"
+        track = _make_bp_track(genre="House", sub_genre="Tech House")
+        info = plugin._get_track_info(track)
+        assert info.genres == ["House", "Tech House"]
+
+    def test_both_mode_without_sub_genre(self, plugin):
+        plugin.config["genres"] = "both"
+        track = _make_bp_track(genre="House", sub_genre=None)
+        info = plugin._get_track_info(track)
+        assert info.genres == ["House"]
+
+    def test_no_genre_data_yields_none(self, plugin):
+        track = _make_bp_track(genre=None, sub_genre=None)
+        info = plugin._get_track_info(track)
+        assert info.genres is None
+
+    def test_invalid_mode_raises_config_error(self, plugin):
+        plugin.config["genres"] = "everything"
+        track = _make_bp_track()
+        with pytest.raises(confuse.ConfigValueError):
+            plugin._get_track_info(track)
 
 
 # ──────────────────────────────────────────────────────────────
