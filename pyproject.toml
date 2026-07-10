@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "beets-beatport4"
-version = "1.1.2"
+version = "1.2.0"
 authors = [
   { name="Szymon 'Samik' Tarasinski", email="st.samik@gmail.com" },
 ]
@@ -42,7 +42,7 @@ dev = [
 
 [project.urls]
 "Homepage" = "https://github.com/Samik081/beets-beatport4"
-"Download" = "https://github.com/Samik081/beets-beatport4/releases/download/v1.1.2/beets-beatport4-1.1.2.tar.gz"
+"Download" = "https://github.com/Samik081/beets-beatport4/releases/download/v1.2.0/beets-beatport4-1.2.0.tar.gz"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
