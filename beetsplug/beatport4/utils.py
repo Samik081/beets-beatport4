@@ -10,3 +10,12 @@ def _redact(value):
     if os.environ.get("BEATPORT4_DEBUG_DISABLE_REDACTION"):
         return value
     return "<REDACTED>"
+
+
+def _image_extension(data: bytes) -> str:
+    """Guess the file extension for raw image data. Beatport serves JPEGs,
+    so anything that is not recognizably a PNG is treated as one.
+    """
+    if data.startswith(b"\x89PNG"):
+        return ".png"
+    return ".jpg"

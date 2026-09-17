@@ -701,3 +701,160 @@ class TestImportTaskFiles:
         ):
             plugin_with_client.import_task_files(task)
             # Should not crash; warning logged
+
+
+class TestArtMode:
+    """``art_mode`` decides where the Beatport cover ends up (#41)."""
+
+    IMAGE = b"\xff\xd8\xff fake jpeg"
+
+    @pytest.fixture
+    def art_plugin(self, plugin_with_client, mock_client):
+        plugin_with_client.config["art"].set(True)
+        mock_client.get_image.return_value = self.IMAGE
+        return plugin_with_client
+
+    @staticmethod
+    def _album_task(artpath=None):
+        task = _make_mock_task()
+        task.is_album = True
+        task.album.artpath = artpath
+        return task
+
+    @staticmethod
+    def _singleton_task():
+        task = MagicMock()
+        task.is_album = False
+        task.match.info = TrackInfo(track_id="456", data_source="Beatport")
+        task.imported_items.return_value = [MagicMock()]
+        return task
+
+    def test_default_mode_embeds_without_saving_cover(self, art_plugin):
+        task = self._album_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            mock_art.get_art.return_value = None
+            art_plugin.import_task_files(task)
+        mock_art.embed_item.assert_called_once()
+        task.album.set_art.assert_not_called()
+
+    def test_file_mode_saves_cover_without_embedding(self, art_plugin):
+        art_plugin.config["art_mode"].set("file")
+        task = self._album_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            art_plugin.import_task_files(task)
+        task.album.set_art.assert_called_once()
+        task.album.store.assert_called_once()
+        mock_art.embed_item.assert_not_called()
+
+    def test_both_mode_saves_cover_and_embeds(self, art_plugin):
+        art_plugin.config["art_mode"].set("both")
+        task = self._album_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            mock_art.get_art.return_value = None
+            art_plugin.import_task_files(task)
+        task.album.set_art.assert_called_once()
+        task.album.store.assert_called_once()
+        mock_art.embed_item.assert_called_once()
+
+    def test_file_mode_keeps_existing_cover_without_download(
+        self, art_plugin, mock_client, tmp_path
+    ):
+        """E.g. fetchart already placed a local cover: no API call at all."""
+        art_plugin.config["art_mode"].set("file")
+        cover = tmp_path / "cover.jpg"
+        cover.write_bytes(b"existing")
+        task = self._album_task(artpath=str(cover).encode())
+        art_plugin.import_task_files(task)
+        mock_client.get_image.assert_not_called()
+        task.album.set_art.assert_not_called()
+
+    def test_file_mode_ignores_stale_artpath(self, art_plugin, tmp_path):
+        """An artpath pointing at a missing file does not count as a cover."""
+        art_plugin.config["art_mode"].set("file")
+        task = self._album_task(artpath=str(tmp_path / "gone.jpg").encode())
+        art_plugin.import_task_files(task)
+        task.album.set_art.assert_called_once()
+
+    def test_file_mode_overwrites_existing_cover(self, art_plugin, tmp_path):
+        art_plugin.config["art_mode"].set("file")
+        art_plugin.config["art_overwrite"].set(True)
+        cover = tmp_path / "cover.jpg"
+        cover.write_bytes(b"existing")
+        task = self._album_task(artpath=str(cover).encode())
+        art_plugin.import_task_files(task)
+        task.album.set_art.assert_called_once()
+
+    def test_both_mode_keeps_existing_cover_but_embeds(
+        self, art_plugin, tmp_path
+    ):
+        art_plugin.config["art_mode"].set("both")
+        cover = tmp_path / "cover.jpg"
+        cover.write_bytes(b"existing")
+        task = self._album_task(artpath=str(cover).encode())
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            mock_art.get_art.return_value = None
+            art_plugin.import_task_files(task)
+        task.album.set_art.assert_not_called()
+        mock_art.embed_item.assert_called_once()
+
+    def test_file_mode_does_nothing_for_singleton(
+        self, art_plugin, mock_client
+    ):
+        art_plugin.config["art_mode"].set("file")
+        task = self._singleton_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            art_plugin.import_task_files(task)
+        mock_client.get_image.assert_not_called()
+        mock_art.embed_item.assert_not_called()
+
+    def test_both_mode_only_embeds_for_singleton(self, art_plugin):
+        art_plugin.config["art_mode"].set("both")
+        task = self._singleton_task()
+        with patch("beetsplug.beatport4.plugin.art") as mock_art:
+            mock_art.get_art.return_value = None
+            art_plugin.import_task_files(task)
+        mock_art.embed_item.assert_called_once()
+        task.album.set_art.assert_not_called()
+
+    def test_saved_cover_source_has_image_extension(self, art_plugin):
+        """set_art() names the cover after the source file's extension."""
+        art_plugin.config["art_mode"].set("file")
+        task = self._album_task()
+        art_plugin.import_task_files(task)
+        assert task.album.set_art.call_args[0][0].endswith(".jpg")
+
+    def test_set_art_oserror_is_handled(self, art_plugin):
+        art_plugin.config["art_mode"].set("file")
+        task = self._album_task()
+        task.album.set_art.side_effect = OSError("read-only fs")
+        art_plugin.import_task_files(task)  # must not raise
+
+    def test_invalid_mode_raises_config_error(self, art_plugin):
+        art_plugin.config["art_mode"].set("nonsense")
+        with pytest.raises(confuse.ConfigError):
+            art_plugin.import_task_files(self._album_task())
+
+    def test_file_mode_writes_cover_next_to_real_album(
+        self, art_plugin, tmp_path
+    ):
+        """End to end against a real library: the cover lands in the album
+        directory under the configured ``art_filename``, with an extension,
+        and is registered as the album's art."""
+        from beets.library import Item, Library
+
+        art_plugin.config["art_mode"].set("file")
+        lib = Library(":memory:", directory=str(tmp_path))
+        album_dir = tmp_path / "Artist" / "Album"
+        album_dir.mkdir(parents=True)
+        track = album_dir / "01.mp3"
+        track.write_bytes(b"")
+        album = lib.add_album([Item(path=str(track).encode())])
+
+        task = _make_mock_task()
+        task.is_album = True
+        task.album = album
+        art_plugin.import_task_files(task)
+
+        cover = album_dir / "cover.jpg"
+        assert cover.read_bytes() == self.IMAGE
+        assert lib.get_album(album.id).artpath == str(cover).encode()
