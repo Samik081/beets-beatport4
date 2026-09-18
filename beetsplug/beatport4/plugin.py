@@ -13,7 +13,7 @@ import beets.ui
 import confuse  # type: ignore[import-untyped]
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 from beets.metadata_plugins import MetadataSourcePlugin
-from beets.util import cached_classproperty
+from beets.util import FilesystemError, cached_classproperty
 
 from beetsplug._utils import art
 from beetsplug.beatport4.client import Beatport4Client
@@ -221,8 +221,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                     temp_image.write(image_data)
 
                 if save_cover:
-                    task.album.set_art(tmp_path)
-                    task.album.store()
+                    self._save_cover(task.album, tmp_path)
                 if mode != "file":
                     self._embed_art(items, tmp_path)
             finally:
@@ -248,6 +247,17 @@ class Beatport4Plugin(MetadataSourcePlugin):
             self._log.debug("Album already has a cover, skipping: {0}", artpath)
             return False
         return True
+
+    def _save_cover(self, album: object, image_path: str) -> None:
+        """Make the image the album's cover art file. A failure is logged
+        rather than raised so that embedding (in ``both`` mode) and the
+        rest of the import still proceed.
+        """
+        try:
+            album.set_art(image_path)
+            album.store()
+        except (OSError, FilesystemError) as e:
+            self._log.warning("Failed to save cover file: {}", e)
 
     def _embed_art(self, items: list, image_path: str) -> None:
         """Embed the image into each item, keeping existing embedded art

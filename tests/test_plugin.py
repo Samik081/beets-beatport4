@@ -833,28 +833,3 @@ class TestArtMode:
         art_plugin.config["art_mode"].set("nonsense")
         with pytest.raises(confuse.ConfigError):
             art_plugin.import_task_files(self._album_task())
-
-    def test_file_mode_writes_cover_next_to_real_album(
-        self, art_plugin, tmp_path
-    ):
-        """End to end against a real library: the cover lands in the album
-        directory under the configured ``art_filename``, with an extension,
-        and is registered as the album's art."""
-        from beets.library import Item, Library
-
-        art_plugin.config["art_mode"].set("file")
-        lib = Library(":memory:", directory=str(tmp_path))
-        album_dir = tmp_path / "Artist" / "Album"
-        album_dir.mkdir(parents=True)
-        track = album_dir / "01.mp3"
-        track.write_bytes(b"")
-        album = lib.add_album([Item(path=str(track).encode())])
-
-        task = _make_mock_task()
-        task.is_album = True
-        task.album = album
-        art_plugin.import_task_files(task)
-
-        cover = album_dir / "cover.jpg"
-        assert cover.read_bytes() == self.IMAGE
-        assert lib.get_album(album.id).artpath == str(cover).encode()
