@@ -13,11 +13,13 @@ import beets.ui
 import confuse  # type: ignore[import-untyped]
 from beets.autotag.hooks import AlbumInfo, TrackInfo
 from beets.metadata_plugins import MetadataSourcePlugin
-from beets.util import cached_classproperty
+from beets.util import FilesystemError, cached_classproperty
 
 from beetsplug._utils import art
 from beetsplug.beatport4.client import Beatport4Client
 from beetsplug.beatport4.constants import (
+    ART_MODES,
+    GENRES_MODES,
     MEDIA_TYPE,
     MEDIUM_INFO_PATTERN,
     NON_WORD_PATTERN,
@@ -29,6 +31,7 @@ from beetsplug.beatport4.constants import (
 )
 from beetsplug.beatport4.exceptions import BeatportAPIError
 from beetsplug.beatport4.models import BeatportOAuthToken
+from beetsplug.beatport4.utils import _image_extension
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -53,6 +56,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 "password": None,
                 "client_id": None,
                 "art": False,
+                "art_mode": "embed",
                 "art_overwrite": False,
                 "art_width": None,
                 "art_height": None,
@@ -75,10 +79,12 @@ class Beatport4Plugin(MetadataSourcePlugin):
         self.register_listener("import_task_files", self.import_task_files)
 
     def setup(self) -> None:
-        """Loads access token from the file, initializes the client
-        and writes the token to the file if new one is fetched during
-        client authorization
+        """Validates the config, loads access token from the file,
+        initializes the client and writes the token to the file if new
+        one is fetched during client authorization
         """
+        self._validate_config()
+
         beatport_token = None
         # Get the OAuth token from a file
         try:
@@ -144,20 +150,29 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 e,
             )
 
-    def import_task_files(self, task: object) -> None:
-        """Embed album art from Beatport after tracks have been written.
+    def _validate_config(self) -> None:
+        """Fail on invalid choice options before the import starts, so a
+        typo does not abort it halfway through (raises ``ConfigError``).
+        """
+        self.config["art_mode"].as_choice(ART_MODES)
+        self.config["genres"].as_choice(GENRES_MODES)
 
-        Fetches the cover image once per release and embeds it into each
-        imported track.  Skips art embedding when: the Beatport client is
-        not initialized, the ``art`` config option is disabled, the
-        matched data source is not Beatport, or ``art_overwrite`` is
-        disabled and a file already contains artwork.
+    def import_task_files(self, task: object) -> None:
+        """Save and/or embed album art from Beatport after tracks have been
+        written.
+
+        Fetches the cover image once per release. Depending on the
+        ``art_mode`` config option it is embedded into each imported track
+        (``embed``), saved as the album's cover art file (``file``), or
+        both (``both``).  Skips art handling when: the Beatport client is
+        not initialized, the ``art`` config option is disabled, or the
+        matched data source is not Beatport.
 
         :param task: import_task_files event parameter
         """
         if self.client is None:
             self._log.warning(
-                "Beatport client not initialized; skipping art embedding"
+                "Beatport client not initialized; skipping art handling"
             )
             return
         try:
@@ -171,6 +186,12 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
             items = task.imported_items()
             if not items:
+                return
+
+            mode = self.config["art_mode"].as_choice(ART_MODES)
+            save_cover = mode != "embed" and self._should_save_cover(task)
+            if mode == "file" and not save_cover:
+                # Nothing to do with the image, so do not download it.
                 return
 
             # All tracks on a Beatport release share the same cover
@@ -202,24 +223,66 @@ class Beatport4Plugin(MetadataSourcePlugin):
 
             tmp_path = None
             try:
-                with tempfile.NamedTemporaryFile(delete=False) as temp_image:
+                # The extension matters: Album.set_art() names the cover
+                # file after the extension of the source image.
+                with tempfile.NamedTemporaryFile(
+                    suffix=_image_extension(image_data), delete=False
+                ) as temp_image:
                     tmp_path = temp_image.name
                     temp_image.write(image_data)
 
-                overwrite = self.config["art_overwrite"].get()
-                for item in items:
-                    if not overwrite and art.get_art(self._log, item):
-                        self._log.debug(
-                            "Already has art, skipping: {0}",
-                            item,
-                        )
-                        continue
-                    art.embed_item(self._log, item, tmp_path)
+                if save_cover:
+                    self._save_cover(task.album, tmp_path)
+                if mode != "file":
+                    self._embed_art(items, tmp_path)
             finally:
                 if tmp_path:
                     os.remove(tmp_path)
         except (OSError, BeatportAPIError) as e:
-            self._log.warning("Failed to embed image: {}", e)
+            self._log.warning("Failed to process art: {}", e)
+
+    def _should_save_cover(self, task: object) -> bool:
+        """Whether the Beatport image should become the album's cover art
+        file. Singletons have no album to attach a cover to, and an existing
+        cover is kept unless ``art_overwrite`` is enabled.
+        """
+        if not task.is_album:
+            self._log.debug("Singleton import; not saving a cover file")
+            return False
+        artpath = task.album.artpath
+        if (
+            not self.config["art_overwrite"].get()
+            and artpath
+            and os.path.isfile(artpath)
+        ):
+            self._log.debug("Album already has a cover, skipping: {0}", artpath)
+            return False
+        return True
+
+    def _save_cover(self, album: object, image_path: str) -> None:
+        """Make the image the album's cover art file. A failure is logged
+        rather than raised so that embedding (in ``both`` mode) and the
+        rest of the import still proceed.
+        """
+        try:
+            album.set_art(image_path)
+            album.store()
+        except (OSError, FilesystemError) as e:
+            self._log.warning("Failed to save cover file: {}", e)
+
+    def _embed_art(self, items: list, image_path: str) -> None:
+        """Embed the image into each item, keeping existing embedded art
+        unless ``art_overwrite`` is enabled.
+        """
+        overwrite = self.config["art_overwrite"].get()
+        for item in items:
+            if not overwrite and art.get_art(self._log, item):
+                self._log.debug(
+                    "Already has art, skipping: {0}",
+                    item,
+                )
+                continue
+            art.embed_item(self._log, item, image_path)
 
     def _prompt_for_token(self) -> BeatportOAuthToken:
         """Prompt user to paste OAuth token.
@@ -431,7 +494,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Build the TrackInfo genres list from the track's Beatport genre
         and sub-genre according to the ``genres`` config option.
         """
-        mode = self.config["genres"].as_choice(["sub", "main", "both"])
+        mode = self.config["genres"].as_choice(GENRES_MODES)
         if mode == "sub":
             genres = [track.sub_genre or track.genre]
         elif mode == "main":

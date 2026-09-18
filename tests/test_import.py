@@ -52,6 +52,9 @@ class TestPluginInterface:
     def test_default_config_art(self, plugin):
         assert plugin.config["art"].get() is False
 
+    def test_default_config_art_mode(self, plugin):
+        assert plugin.config["art_mode"].get() == "embed"
+
     def test_default_config_penalty(self, plugin):
         assert plugin.config["data_source_mismatch_penalty"].get() == 0.5
 

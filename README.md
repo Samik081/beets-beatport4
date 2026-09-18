@@ -106,6 +106,29 @@ beatport4:
     art_overwrite: yes
 ```
 
+### Embedding vs. saving a cover file
+
+By default the image is embedded into the audio files. With `art_mode` you can instead (or additionally) save it as the album's cover art file, like the stock `fetchart` plugin does:
+
+```yaml
+beatport4:
+    art: yes
+    art_mode: file  # embed | file | both
+```
+
+| `art_mode` | What happens | Audio files touched? | Cover file in album dir? |
+|---|---|---|---|
+| `embed` (default) | Download, embed into each track, discard the image. | yes | no |
+| `file` | Download and save as the album's cover (`cover.jpg`, or whatever your [`art_filename`](https://beets.readthedocs.io/en/stable/reference/config.html#art-filename) is set to). | no | yes |
+| `both` | Save as the album's cover and embed into each track. | yes | yes |
+
+> [!TIP]
+> - The saved cover is registered as the album's art in the beets library, so beets moves and removes it together with the album.
+> - `art_overwrite` applies to the cover file too: an album that already has a cover keeps it unless `art_overwrite: yes`. With `art_mode: file` the image is not even downloaded in that case.
+> - This makes Beatport usable as a fallback for `fetchart` (e.g. with its `filesystem` source): use `art_mode: file` and list `fetchart` before `beatport4` in your `plugins:`, so a local cover is already in place when this plugin runs.
+> - To use Beatport only as the art source and let the stock `embedart` plugin do the embedding with its own options (`maxwidth`, `ifempty`, ...), combine `art_mode: file` with `embedart`'s `auto: yes`.
+> - Cover files only apply to album imports. Singletons have no album directory, so `file` does nothing for them and `both` only embeds.
+
 ### Image size
 
 Original Beatport images can be large, but thanks to Beatport's dynamic image URIs you can request a pre-resized image, saving bandwidth and local processing.
@@ -171,8 +194,9 @@ beatport4:
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `art` | bool | `no` | Enable album art fetching and embedding |
-| `art_overwrite` | bool | `no` | Overwrite existing art if already present |
+| `art` | bool | `no` | Enable album art fetching |
+| `art_mode` | `embed` \| `file` \| `both` | `embed` | What to do with the fetched art: embed it into the tracks, save it as the album's cover file, or both |
+| `art_overwrite` | bool | `no` | Overwrite existing art (embedded and cover file) if already present |
 | `art_width` | int | *(none)* | Target image width in pixels (0 or omit to disable resizing) |
 | `art_height` | int | *(none)* | Target image height in pixels (0 or omit to disable resizing) |
 | `genres` | `sub` \| `main` \| `both` | `sub` | Which Beatport genre fields go into beets' `genres`: sub-genre (falling back to genre), main genre, or both |
@@ -192,6 +216,7 @@ Full example with all defaults:
 ```yaml
 beatport4:
     art: no
+    art_mode: embed
     art_overwrite: no
     art_width: 0
     art_height: 0
