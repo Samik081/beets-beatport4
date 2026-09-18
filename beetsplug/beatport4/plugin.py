@@ -18,6 +18,8 @@ from beets.util import FilesystemError, cached_classproperty
 from beetsplug._utils import art
 from beetsplug.beatport4.client import Beatport4Client
 from beetsplug.beatport4.constants import (
+    ART_MODES,
+    GENRES_MODES,
     MEDIA_TYPE,
     MEDIUM_INFO_PATTERN,
     NON_WORD_PATTERN,
@@ -77,10 +79,12 @@ class Beatport4Plugin(MetadataSourcePlugin):
         self.register_listener("import_task_files", self.import_task_files)
 
     def setup(self) -> None:
-        """Loads access token from the file, initializes the client
-        and writes the token to the file if new one is fetched during
-        client authorization
+        """Validates the config, loads access token from the file,
+        initializes the client and writes the token to the file if new
+        one is fetched during client authorization
         """
+        self._validate_config()
+
         beatport_token = None
         # Get the OAuth token from a file
         try:
@@ -146,6 +150,13 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 e,
             )
 
+    def _validate_config(self) -> None:
+        """Fail on invalid choice options before the import starts, so a
+        typo does not abort it halfway through (raises ``ConfigError``).
+        """
+        self.config["art_mode"].as_choice(ART_MODES)
+        self.config["genres"].as_choice(GENRES_MODES)
+
     def import_task_files(self, task: object) -> None:
         """Save and/or embed album art from Beatport after tracks have been
         written.
@@ -177,7 +188,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
             if not items:
                 return
 
-            mode = self.config["art_mode"].as_choice(["embed", "file", "both"])
+            mode = self.config["art_mode"].as_choice(ART_MODES)
             save_cover = mode != "embed" and self._should_save_cover(task)
             if mode == "file" and not save_cover:
                 # Nothing to do with the image, so do not download it.
@@ -483,7 +494,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         """Build the TrackInfo genres list from the track's Beatport genre
         and sub-genre according to the ``genres`` config option.
         """
-        mode = self.config["genres"].as_choice(["sub", "main", "both"])
+        mode = self.config["genres"].as_choice(GENRES_MODES)
         if mode == "sub":
             genres = [track.sub_genre or track.genre]
         elif mode == "main":

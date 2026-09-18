@@ -30,6 +30,11 @@ TOKEN_EXPIRY_BUFFER_SECONDS = 30
 VA_ARTIST_THRESHOLD = 4
 VA_ARTIST_NAME = "Various Artists"
 
+# ── Config choices ───────────────────────────────────────────
+
+ART_MODES = ("embed", "file", "both")
+GENRES_MODES = ("sub", "main", "both")
+
 # ── Track metadata ────────────────────────────────────────────
 
 ORIGINAL_MIX_NAME = "Original Mix"

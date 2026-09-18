@@ -421,6 +421,20 @@ class TestPluginSetup:
             plugin.setup()
             assert plugin.client is mock_client
 
+    @pytest.mark.parametrize("option", ["art_mode", "genres"])
+    def test_setup_rejects_invalid_choice_before_authenticating(
+        self, plugin, option
+    ):
+        """A config typo must fail at import_begin, before any file is
+        touched, rather than halfway through the import."""
+        plugin.config[option].set("nonsense")
+
+        with patch("beetsplug.beatport4.plugin.Beatport4Client") as cls:
+            with pytest.raises(confuse.ConfigError, match=option):
+                plugin.setup()
+            cls.assert_not_called()
+        assert plugin.client is None
+
     def test_setup_with_corrupt_token_file(self, plugin, tmp_path):
         token_path = tmp_path / "token.json"
         token_path.write_text("{bad json")
