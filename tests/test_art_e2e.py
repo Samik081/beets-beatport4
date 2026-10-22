@@ -40,6 +40,9 @@ def _embedded_art(item: Item) -> bytes | None:
 
 @pytest.fixture
 def lib(tmp_path):
+    # beets >= 2.13 backs up the database before schema migrations, which
+    # for an in-memory library drops ":memory:-*.bak" files into the CWD.
+    beets.config["create_backup_before_migrations"] = False
     return Library(":memory:", directory=str(tmp_path / "lib"))
 
 
@@ -342,8 +345,8 @@ class TestTempFile:
         assert list(self.tempdir.iterdir()) == []
 
 
-def _write_image(album, data: bytes) -> str:
+def _write_image(album, data: bytes) -> Path:
     """Write an image outside the album directory and return its path."""
     path = _album_dir(album).parent / "src_image.jpg"
     path.write_bytes(data)
-    return str(path)
+    return path
