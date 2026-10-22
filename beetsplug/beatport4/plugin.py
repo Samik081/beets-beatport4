@@ -6,6 +6,7 @@ import json
 import os
 import tempfile
 from json import JSONDecodeError
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import beets
@@ -228,7 +229,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                 with tempfile.NamedTemporaryFile(
                     suffix=_image_extension(image_data), delete=False
                 ) as temp_image:
-                    tmp_path = temp_image.name
+                    tmp_path = Path(temp_image.name)
                     temp_image.write(image_data)
 
                 if save_cover:
@@ -237,7 +238,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
                     self._embed_art(items, tmp_path)
             finally:
                 if tmp_path:
-                    os.remove(tmp_path)
+                    tmp_path.unlink()
         except (OSError, BeatportAPIError) as e:
             self._log.warning("Failed to process art: {}", e)
 
@@ -259,7 +260,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
             return False
         return True
 
-    def _save_cover(self, album: object, image_path: str) -> None:
+    def _save_cover(self, album: object, image_path: Path) -> None:
         """Make the image the album's cover art file. A failure is logged
         rather than raised so that embedding (in ``both`` mode) and the
         rest of the import still proceed.
@@ -270,7 +271,7 @@ class Beatport4Plugin(MetadataSourcePlugin):
         except (OSError, FilesystemError) as e:
             self._log.warning("Failed to save cover file: {}", e)
 
-    def _embed_art(self, items: list, image_path: str) -> None:
+    def _embed_art(self, items: list, image_path: Path) -> None:
         """Embed the image into each item, keeping existing embedded art
         unless ``art_overwrite`` is enabled.
         """

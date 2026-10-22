@@ -835,7 +835,7 @@ class TestArtMode:
         art_plugin.config["art_mode"].set("file")
         task = self._album_task()
         art_plugin.import_task_files(task)
-        assert task.album.set_art.call_args[0][0].endswith(".jpg")
+        assert task.album.set_art.call_args[0][0].suffix == ".jpg"
 
     def test_set_art_oserror_is_handled(self, art_plugin):
         art_plugin.config["art_mode"].set("file")
